@@ -1,0 +1,252 @@
+import { useState } from 'react';
+import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
+import { 
+  LayoutDashboard, Users, BookOpen, Clock, 
+  Calendar, Bell, LogOut, Moon, Sun, UserCircle, Menu, GraduationCap, CheckSquare, ClipboardList
+} from 'lucide-react';
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
+import { NotificationPanel } from './NotificationPanel';
+
+export const Layout = () => {
+  const { user, role, logout, impersonatedUser, stopImpersonation, isEditMode, setIsEditMode } = useAuth();
+  const { theme, toggleTheme } = useTheme();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [showNotifications, setShowNotifications] = useState(false);
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+
+  const adminLinks = [
+    { to: '/admin', icon: <LayoutDashboard size={18} />, label: 'Dashboard', roles: ['hod', 'coordinator', 'faculty'] },
+    ...(role === 'hod' ? [{ to: '/admin/coordinators', icon: <Users size={18} />, label: 'Class Coordinators', roles: ['hod'] }] : []),
+    ...(role === 'coordinator' ? [{ to: '/admin/faculty-requests', icon: <Users size={18} />, label: 'Faculty Requests', roles: ['coordinator'] }] : []),
+    { to: '/admin/students', icon: <Users size={18} />, label: 'Students', roles: ['hod', 'coordinator', 'faculty'] },
+    { to: '/admin/attendance', icon: <CheckSquare size={18} />, label: 'Attendance', roles: ['hod', 'coordinator', 'faculty'] },
+    ...(role === 'hod' || role === 'coordinator' ? [{ to: '/admin/faculty-activity', icon: <ClipboardList size={18} />, label: 'Faculty Activity', roles: ['hod', 'coordinator'] }] : []),
+    { to: '/admin/assignments', icon: <BookOpen size={18} />, label: 'Assignments', roles: ['hod', 'coordinator', 'faculty'] },
+    { to: '/admin/quiz', icon: <Clock size={18} />, label: 'Quiz', roles: ['hod', 'coordinator', 'faculty'] },
+    { to: '/admin/examinations', icon: <GraduationCap size={18} />, label: 'Examinations', roles: ['hod', 'coordinator', 'faculty'] },
+    { to: '/admin/events', icon: <Calendar size={18} />, label: 'Events', roles: ['hod', 'coordinator', 'faculty'] },
+    { to: '/admin/notice', icon: <Bell size={18} />, label: 'Notices', roles: ['hod', 'coordinator', 'faculty'] },
+    { to: '/admin/profile', icon: <UserCircle size={18} />, label: 'Profile', roles: ['hod', 'coordinator', 'faculty'] },
+  ];
+
+  const studentLinks = [
+    { to: '/student', icon: <LayoutDashboard size={18} />, label: 'Dashboard' },
+    { to: '/student/attendance', icon: <Users size={18} />, label: 'Attendance' },
+    { to: '/student/assignments', icon: <BookOpen size={18} />, label: 'Assignments' },
+    { to: '/student/quiz', icon: <Clock size={18} />, label: 'Quiz' },
+    { to: '/student/examinations', icon: <GraduationCap size={18} />, label: 'Examinations' },
+    { to: '/student/events', icon: <Calendar size={18} />, label: 'Events' },
+    { to: '/student/notice', icon: <Bell size={18} />, label: 'Notices' },
+    { to: '/student/profile', icon: <UserCircle size={18} />, label: 'Profile' },
+  ];
+
+  const isStaff = ['admin', 'hod', 'coordinator', 'faculty'].includes(role);
+  const links = isStaff ? adminLinks : studentLinks;
+
+  // Determine current page title for the header
+  const currentLink = links.find(link => {
+    if (link.to === '/admin' || link.to === '/student') {
+      return location.pathname === link.to;
+    }
+    return location.pathname.startsWith(link.to);
+  });
+  const pageTitle = currentLink ? currentLink.label : 'Overview';
+
+  return (
+    <div className="flex h-screen w-full bg-background overflow-hidden font-sans text-foreground">
+      {/* Sidebar - Premium Enterprise */}
+      <aside className="w-[240px] flex-shrink-0 bg-sidebar flex flex-col z-20 transition-all duration-300 border-r border-border">
+        <div className="flex items-center gap-3 px-5 h-14 border-b border-border flex-shrink-0">
+          <div className="w-7 h-7 rounded bg-primary flex items-center justify-center text-white font-bold text-sm shadow-sm">
+            A
+          </div>
+          <div>
+            <h2 className="text-sm font-semibold text-foreground tracking-tight">AcroNexus</h2>
+            <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Enterprise ERP</p>
+          </div>
+        </div>
+
+        <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-0.5 custom-scrollbar">
+          {links.map((link) => (
+            <NavLink 
+              key={link.to} 
+              to={link.to} 
+              end={link.to === '/admin' || link.to === '/student'}
+              className={({ isActive }) => cn(
+                "flex items-center gap-2.5 px-3 py-2 text-[13px] font-medium rounded-md transition-all duration-150 group",
+                isActive 
+                  ? "bg-accent/50 text-foreground font-semibold" 
+                  : "text-muted-foreground hover:text-foreground hover:bg-accent/30"
+              )}
+            >
+              {({ isActive }) => (
+                <>
+                  <div className={cn(
+                    "transition-colors", 
+                    "group-hover:text-foreground",
+                    isActive ? "text-foreground" : "text-muted-foreground"
+                  )}>
+                    {link.icon}
+                  </div>
+                  {link.label}
+                </>
+              )}
+            </NavLink>
+          ))}
+        </nav>
+
+        <div className="p-3 border-t border-border bg-sidebar">
+          <div className="flex items-center gap-2 p-2 rounded-md hover:bg-accent/30 transition-colors cursor-pointer mb-1" onClick={() => navigate(isStaff ? '/admin/profile' : '/student/profile')}>
+            <img 
+              src={user?.avatar || `https://ui-avatars.com/api/?name=${user?.name}&background=4F46E5&color=fff`} 
+              alt="Profile" 
+              className="w-8 h-8 rounded-full ring-1 ring-border object-cover"
+            />
+            <div className="overflow-hidden flex-1">
+              <p className="text-xs font-semibold truncate text-foreground">{user?.name}</p>
+              <p className="text-[10px] text-muted-foreground truncate">
+                {role === 'hod' ? 'Head of Department' : 
+                 role === 'coordinator' ? 'Class Coordinator' : 
+                 role === 'faculty' ? 'Faculty Member' : 
+                 role === 'student' ? user?.className : 'Administrator'}
+              </p>
+            </div>
+          </div>
+          
+          <div className="flex gap-1 px-2">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={toggleTheme} 
+              className="h-7 flex-1 rounded-md hover:bg-accent/50 text-muted-foreground hover:text-foreground transition-colors"
+            >
+              {theme === 'light' ? <Moon size={14} /> : <Sun size={14} />}
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={handleLogout} 
+              className="h-7 flex-1 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+            >
+              <LogOut size={14} />
+            </Button>
+          </div>
+        </div>
+      </aside>
+
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col h-screen overflow-hidden bg-background relative">
+        {impersonatedUser && (
+          <div className="bg-primary/5 border-b border-primary/20 px-6 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between z-50 gap-3 sm:gap-0">
+            <div className="flex items-center gap-3">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary"></span>
+              </span>
+              <span className="text-sm font-medium text-foreground">
+                Monitoring: <strong className="text-primary">{user?.name}</strong>
+              </span>
+              <Badge variant="outline" className={cn("ml-2 text-xs border", isEditMode ? "bg-amber-500/10 text-amber-600 border-amber-500/30" : "bg-primary/5 text-primary border-primary/20")}>
+                {isEditMode ? 'Edit Mode' : 'Read-Only Mode'}
+              </Badge>
+            </div>
+            <div className="flex items-center gap-3">
+              <Button 
+                size="sm" 
+                variant={isEditMode ? "secondary" : "outline"} 
+                className={cn("h-8 text-xs font-medium", isEditMode ? "bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 border border-amber-500/30" : "")}
+                onClick={() => setIsEditMode(!isEditMode)}
+              >
+                {isEditMode ? 'Switch to Read-Only' : 'Switch to Edit Mode'}
+              </Button>
+              <Button 
+                size="sm" 
+                variant="default" 
+                className="h-8 text-xs shadow-sm"
+                onClick={() => { 
+                  stopImpersonation(); 
+                  navigate('/admin/coordinators'); 
+                }}
+              >
+                <LogOut size={14} className="mr-2" /> Exit Monitoring
+              </Button>
+            </div>
+          </div>
+        )}
+        
+        {/* Sticky Top Header */}
+        <header className="h-14 flex-shrink-0 bg-navbar/95 backdrop-blur border-b border-border flex items-center justify-between px-6 sticky top-0 z-10 transition-colors duration-300">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" className="md:hidden hover:bg-accent/30 text-muted-foreground hover:text-foreground">
+              <Menu size={18} />
+            </Button>
+            <h1 className="text-lg font-semibold text-foreground tracking-tight">{pageTitle}</h1>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="hidden md:flex items-center gap-2 text-xs font-medium text-muted-foreground bg-muted/50 px-2.5 py-1.5 rounded-md border border-border">
+              <Calendar size={13} />
+              <span>{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</span>
+            </div>
+            
+            {/* Notification Bell */}
+            <div className="relative">
+              <Button 
+                variant="outline" 
+                size="icon" 
+                className={cn(
+                  "rounded-md w-8 h-8 border-border shadow-sm transition-colors",
+                  showNotifications ? "bg-accent text-accent-foreground" : "bg-background hover:bg-accent hover:text-accent-foreground"
+                )}
+                onClick={() => setShowNotifications(!showNotifications)}
+              >
+                <Bell size={14} />
+                <span className="absolute -top-1 -right-1 flex h-3 w-3 items-center justify-center rounded-full bg-primary text-[8px] font-bold text-primary-foreground ring-2 ring-background">
+                  3
+                </span>
+              </Button>
+              {showNotifications && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowNotifications(false)} />
+                  <NotificationPanel onClose={() => setShowNotifications(false)} />
+                </>
+              )}
+            </div>
+
+            <div 
+              className="flex items-center gap-2 cursor-pointer hover:bg-accent/30 p-1.5 pr-3 rounded-full md:rounded-md transition-colors ml-1"
+              onClick={() => navigate(isStaff ? '/admin/profile' : '/student/profile')}
+            >
+              <img 
+                src={user?.avatar || `https://ui-avatars.com/api/?name=${user?.name}&background=4F46E5&color=fff`} 
+                alt="Profile" 
+                className="w-8 h-8 rounded-full ring-2 ring-primary/20 object-cover"
+              />
+              <span className="text-sm font-semibold text-foreground hidden md:block">
+                {user?.name}
+              </span>
+            </div>
+          </div>
+        </header>
+
+        {/* Scrollable Content */}
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 custom-scrollbar">
+          <div className={cn(
+            "max-w-7xl mx-auto w-full animate-in fade-in duration-300 pb-12",
+            impersonatedUser && !isEditMode && "pointer-events-none opacity-95"
+          )}>
+            <Outlet />
+          </div>
+        </main>
+      </div>
+    </div>
+  );
+};

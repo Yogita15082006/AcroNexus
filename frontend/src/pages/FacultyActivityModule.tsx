@@ -1,0 +1,788 @@
+import { useState, useMemo, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from '../context/AuthContext';
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '../components/ui/card';
+import { Badge } from '../components/ui/badge';
+import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, LineChart, Line } from 'recharts';
+import { 
+  CheckCircle, XCircle, AlertTriangle, Sun, X, ChevronDown, Search, 
+  Users, BookOpen, Clock, Printer, Download, FileText, User as UserIcon, Mail, Plus
+} from 'lucide-react';
+import { 
+  subjectAssignments, mockActivityRecords,
+  yearOptions, semOptions, classOptions,
+  holidayReasonOptions, absenceReasonOptions
+} from '../data/facultyActivityData';
+import { mockData } from '../data/mockData';
+
+/* ───── MultiSelect Dropdown ───── */
+const MultiSelect = ({ label, options, selected, onChange }: { label: string; options: string[]; selected: string[]; onChange: (v: string[]) => void }) => {
+  const [open, setOpen] = useState(false);
+  
+  useEffect(() => {
+    const closeMenu = () => setOpen(false);
+    window.addEventListener('close-dropdowns', closeMenu);
+    return () => window.removeEventListener('close-dropdowns', closeMenu);
+  }, []);
+
+  const toggle = (val: string) => {
+    onChange(selected.includes(val) ? selected.filter(v => v !== val) : [...selected, val]);
+  };
+  return (
+    <div className="space-y-1.5 relative">
+      <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{label}</label>
+      <button type="button" onClick={() => setOpen(!open)}
+        className="flex items-center justify-between w-full h-10 px-3 text-sm rounded-lg border border-border bg-background hover:border-primary/50 transition-colors">
+        <span className="truncate text-left">{selected.length > 0 ? `${selected.length} selected` : `All ${label}s`}</span>
+        <ChevronDown size={14} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute top-full left-0 mt-1 min-w-full bg-popover border border-border rounded-lg shadow-xl z-50 max-h-[300px] overflow-y-auto">
+            {options.map(opt => (
+              <label key={opt} className="flex items-center gap-2 px-3 py-2 hover:bg-accent/50 cursor-pointer text-sm whitespace-nowrap">
+                <input type="checkbox" checked={selected.includes(opt)} onChange={() => toggle(opt)}
+                  className="w-3.5 h-3.5 rounded border-border text-primary shrink-0" />
+                {opt}
+              </label>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
+// --- Main Module ---
+export const FacultyActivityModule = () => {
+  const { user } = useAuth();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [academicYears, setAcademicYears] = useState<string[]>([]);
+  const [semesters, setSemesters] = useState<string[]>([]);
+  const [classes, setClasses] = useState<string[]>([]);
+  const [subjects, setSubjects] = useState<string[]>([]);
+  const [statusFilter, setStatusFilter] = useState<string[]>([]);
+  const [sortBy, setSortBy] = useState('name-asc');
+  
+  const [selectedFaculty, setSelectedFaculty] = useState<any | null>(null);
+  const [showMarkAttendance, setShowMarkAttendance] = useState(false);
+
+  useEffect(() => {
+    if (showMarkAttendance || selectedFaculty) {
+      window.dispatchEvent(new Event('close-dropdowns'));
+    }
+  }, [showMarkAttendance, selectedFaculty]);
+
+  // Permission Logic
+  const visibleFacultyIds = useMemo(() => {
+    if (!user) return new Set<string>();
+    
+    // HOD sees all
+    if (user.role === 'hod') {
+      return new Set(mockData.admins.filter(a => a.role === 'faculty' || a.role === 'coordinator').map(a => a.id));
+    }
+    
+    // Coordinator sees only faculty assigned to their managed classes
+    if (user.role === 'coordinator') {
+      const managedClassIds = user.classes || [];
+      const managedClassObjects = managedClassIds.map(id => mockData.classes.find(c => c.id === id)).filter(Boolean);
+      
+      const managedYears = managedClassObjects.map(c => c?.year === 'Second Year' ? '2nd Year' : c?.year === 'Third Year' ? '3rd Year' : '4th Year');
+      const managedClassNames = managedClassObjects.map(c => c?.name);
+      
+      const validIds = new Set<string>();
+      subjectAssignments.forEach(sa => {
+        if (managedYears.includes(sa.academicYear) && managedClassNames.includes(sa.className)) {
+          validIds.add(sa.facultyId);
+        }
+      });
+      // Coordinator can also see their own activity
+      validIds.add(user.id);
+      return validIds;
+    }
+    
+    return new Set<string>();
+  }, [user]);
+
+  // Derive all possible subjects from subjectAssignments for the filter
+  const allSubjects = useMemo(() => Array.from(new Set(subjectAssignments.map(sa => sa.subjectName))), []);
+
+  // Compute Faculty Data
+  const facultyData = useMemo(() => {
+    return mockData.admins
+      .filter(a => (a.role === 'faculty' || a.role === 'coordinator') && visibleFacultyIds.has(a.id))
+      .map(faculty => {
+        const assignments = subjectAssignments.filter(sa => sa.facultyId === faculty.id);
+        const assignedYears = Array.from(new Set(assignments.map(a => a.academicYear)));
+        const assignedSems = Array.from(new Set(assignments.map(a => a.semester)));
+        const assignedClasses = Array.from(new Set(assignments.map(a => a.className)));
+        const assignedSubjects = Array.from(new Set(assignments.map(a => a.subjectName)));
+        
+        const records = mockActivityRecords.filter(r => r.facultyId === faculty.id);
+        const totalScheduled = records.filter(r => r.status !== 'Holiday').length;
+        const classesTaken = records.filter(r => r.status === 'Present').length;
+        const classesMissed = records.filter(r => r.status === 'Class Missed').length;
+        const absent = records.filter(r => r.status === 'Absent').length;
+        const holidays = records.filter(r => r.status === 'Holiday').length;
+        const teachingAttendance = totalScheduled > 0 ? Math.round((classesTaken / totalScheduled) * 100) : 0;
+        
+        // Mock status
+        const status = teachingAttendance > 75 ? 'Active' : 'Inactive';
+        
+        return {
+          ...faculty,
+          assignedYears,
+          assignedSems,
+          assignedClasses,
+          assignedSubjects,
+          totalScheduled,
+          classesTaken,
+          classesMissed,
+          absent,
+          holidays,
+          teachingAttendance,
+          status,
+          records
+        };
+      });
+  }, [visibleFacultyIds]);
+
+  // Filter & Sort
+  const filteredFaculty = useMemo(() => {
+    let result = facultyData;
+
+    // Search
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(f => 
+        f.name.toLowerCase().includes(q) || 
+        f.empId.toLowerCase().includes(q) || 
+        f.email.toLowerCase().includes(q)
+      );
+    }
+
+    // Filters
+    if (academicYears.length > 0) result = result.filter(f => f.assignedYears.some(y => academicYears.includes(y)));
+    if (semesters.length > 0) result = result.filter(f => f.assignedSems.some(s => semesters.includes(s)));
+    if (classes.length > 0) result = result.filter(f => f.assignedClasses.some(c => classes.includes(c)));
+    if (subjects.length > 0) result = result.filter(f => f.assignedSubjects.some(s => subjects.includes(s)));
+    if (statusFilter.length > 0) result = result.filter(f => statusFilter.includes(f.status));
+
+    // Sort
+    result.sort((a, b) => {
+      if (sortBy === 'name-asc') return a.name.localeCompare(b.name);
+      if (sortBy === 'name-desc') return b.name.localeCompare(a.name);
+      if (sortBy === 'highest-attendance') return b.teachingAttendance - a.teachingAttendance;
+      if (sortBy === 'lowest-attendance') return a.teachingAttendance - b.teachingAttendance;
+      if (sortBy === 'recently-active') {
+        const lastA = a.records.length > 0 ? Math.max(...a.records.map((r:any) => new Date(r.date).getTime())) : 0;
+        const lastB = b.records.length > 0 ? Math.max(...b.records.map((r:any) => new Date(r.date).getTime())) : 0;
+        return lastB - lastA;
+      }
+      return 0;
+    });
+
+    return result;
+  }, [facultyData, searchQuery, academicYears, semesters, classes, subjects, statusFilter, sortBy]);
+
+  const resetFilters = () => {
+    setSearchQuery('');
+    setAcademicYears([]);
+    setSemesters([]);
+    setClasses([]);
+    setSubjects([]);
+    setStatusFilter([]);
+    setSortBy('name-asc');
+  };
+
+  const statusBadge = (status: string) => {
+    switch (status) {
+      case 'Present': return <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400 border-0"><CheckCircle size={12} className="mr-1" />Present</Badge>;
+      case 'Absent': return <Badge className="bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400 border-0"><XCircle size={12} className="mr-1" />Absent</Badge>;
+      case 'Class Missed': return <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 border-0"><AlertTriangle size={12} className="mr-1" />Missed</Badge>;
+      case 'Holiday': return <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400 border-0"><Sun size={12} className="mr-1" />Holiday</Badge>;
+      default: return <Badge variant="secondary">{status}</Badge>;
+    }
+  };
+
+  return (
+    <div className="space-y-6 pb-12">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground tracking-tight">Faculty Activity Directory</h1>
+          <p className="text-sm text-muted-foreground mt-1">Monitor and analyze faculty teaching activities, attendance, and assignments.</p>
+        </div>
+        {user?.role !== 'student' && (
+          <Button onClick={() => setShowMarkAttendance(true)} className="gap-2 shrink-0 shadow-sm bg-primary text-white hover:bg-primary/90">
+            <Plus size={16} /> Mark Attendance
+          </Button>
+        )}
+      </div>
+
+      {/* Top Search & Filter Bar */}
+      <Card className="border-border shadow-sm relative z-30 !overflow-visible">
+        <CardContent className="p-4 space-y-4 !overflow-visible">
+          <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center">
+            <div className="relative w-full md:w-96">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <Input placeholder="Search by name, employee ID, or email..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-9 h-10" />
+            </div>
+            <div className="flex items-center gap-3 w-full md:w-auto">
+              <label className="text-xs font-semibold text-muted-foreground uppercase whitespace-nowrap">Sort By:</label>
+              <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="h-10 px-3 rounded-lg border border-border bg-background text-sm flex-1 md:w-56">
+                <option value="name-asc">Name (A-Z)</option>
+                <option value="name-desc">Name (Z-A)</option>
+                <option value="recently-active">Recently Active</option>
+                <option value="highest-attendance">Highest Teaching Attendance</option>
+                <option value="lowest-attendance">Lowest Teaching Attendance</option>
+              </select>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 pt-4 border-t border-border">
+            <MultiSelect label="Academic Year" options={yearOptions} selected={academicYears} onChange={setAcademicYears} />
+            <MultiSelect label="Semester" options={semOptions} selected={semesters} onChange={setSemesters} />
+            <MultiSelect label="Class" options={classOptions} selected={classes} onChange={setClasses} />
+            <MultiSelect label="Subject" options={allSubjects} selected={subjects} onChange={setSubjects} />
+            <MultiSelect label="Status" options={['Active', 'Inactive']} selected={statusFilter} onChange={setStatusFilter} />
+          </div>
+          
+          <div className="flex justify-end pt-2">
+            <Button variant="ghost" size="sm" onClick={resetFilters} className="text-muted-foreground hover:text-foreground">
+              Clear All Filters
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Faculty Directory Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+        {filteredFaculty.map(faculty => (
+          <Card key={faculty.id} className="overflow-hidden border-border hover:border-primary/40 hover:shadow-lg transition-all duration-300 group flex flex-col">
+            <CardHeader className="p-5 pb-4 border-b border-border/50 bg-muted/20 relative">
+              <div className="absolute top-4 right-4">
+                <Badge variant={faculty.status === 'Active' ? 'default' : 'secondary'} className={faculty.status === 'Active' ? 'bg-emerald-500 hover:bg-emerald-600 border-emerald-500 text-white' : ''}>
+                  {faculty.status}
+                </Badge>
+              </div>
+              <div className="flex items-center gap-4">
+                <img src={`https://ui-avatars.com/api/?name=${faculty.name.replace(/ /g,'+')}&background=4F46E5&color=fff&size=64`} alt={faculty.name} className="w-16 h-16 rounded-full ring-2 ring-background shadow-md" />
+                <div>
+                  <CardTitle className="text-lg">{faculty.name}</CardTitle>
+                  <div className="flex items-center gap-2 mt-1.5 text-xs text-muted-foreground">
+                    <Badge variant="outline" className="font-mono">{faculty.empId}</Badge>
+                  </div>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-5 space-y-4 flex-1">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Mail size={14} className="shrink-0" /> <span className="truncate">{faculty.email}</span>
+                </div>
+                <div className="flex gap-1.5 flex-wrap">
+                  {faculty.assignedYears.map(y => <Badge key={y} variant="secondary" className="text-[10px] uppercase bg-primary/10 text-primary">{y}</Badge>)}
+                  {faculty.assignedSems.map(s => <Badge key={s} variant="outline" className="text-[10px] uppercase">{s}</Badge>)}
+                </div>
+                <div className="flex gap-1.5 flex-wrap pt-1">
+                  {faculty.assignedClasses.map(c => <Badge key={c} variant="outline" className="text-[10px] bg-accent/50">{c}</Badge>)}
+                  {faculty.assignedSubjects.map(s => <Badge key={s} variant="outline" className="text-[10px] bg-accent/20 border-primary/20 text-muted-foreground">{s}</Badge>)}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2 pt-3 border-t border-border/50">
+                <div className="text-center p-2 rounded-lg bg-muted/30">
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase">Scheduled</p>
+                  <p className="text-lg font-bold text-foreground mt-0.5">{faculty.totalScheduled}</p>
+                </div>
+                <div className="text-center p-2 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800/50">
+                  <p className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 uppercase">Taken</p>
+                  <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400 mt-0.5">{faculty.classesTaken}</p>
+                </div>
+                <div className="text-center p-2 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800/50">
+                  <p className="text-[10px] font-semibold text-red-700 dark:text-red-400 uppercase">Missed</p>
+                  <p className="text-lg font-bold text-red-700 dark:text-red-400 mt-0.5">{faculty.classesMissed}</p>
+                </div>
+              </div>
+              
+              <div className="pt-2">
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-xs font-semibold text-muted-foreground">Teaching Attendance</span>
+                  <span className="text-xs font-bold text-primary">{faculty.teachingAttendance}%</span>
+                </div>
+                <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                  <div className="h-full bg-primary rounded-full transition-all duration-1000" style={{ width: `${faculty.teachingAttendance}%` }} />
+                </div>
+              </div>
+            </CardContent>
+            <CardFooter className="p-4 pt-0 gap-3 border-t border-border/50 bg-muted/10 mt-auto">
+              <Button variant="outline" className="flex-1 border-primary/20 hover:bg-primary/5" onClick={() => setSelectedFaculty(faculty)}>
+                <BookOpen size={14} className="mr-2" /> View Activity
+              </Button>
+              <Button variant="ghost" size="icon" className="shrink-0 text-muted-foreground hover:text-foreground" title="View Profile">
+                <UserIcon size={16} />
+              </Button>
+            </CardFooter>
+          </Card>
+        ))}
+      </div>
+
+      {filteredFaculty.length === 0 && (
+        <div className="text-center py-20 bg-muted/20 rounded-xl border border-dashed border-border">
+          <Users size={48} className="mx-auto mb-4 text-muted-foreground/50" />
+          <h3 className="text-lg font-semibold text-foreground">No faculty found</h3>
+          <p className="text-sm text-muted-foreground mt-1">Try adjusting your search or filters.</p>
+        </div>
+      )}
+
+      {/* Activity Details Modal */}
+      <AnimatePresence>
+        {selectedFaculty && (
+          <ActivityModal 
+            faculty={selectedFaculty} 
+            onClose={() => setSelectedFaculty(null)} 
+            statusBadge={statusBadge} 
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Mark Attendance Modal */}
+      <AnimatePresence>
+        {showMarkAttendance && (
+          <MarkAttendanceModal 
+            isOpen={showMarkAttendance}
+            onClose={() => setShowMarkAttendance(false)}
+            user={user}
+            statusBadge={statusBadge}
+          />
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
+/* ───── Detailed Activity Modal ───── */
+const ActivityModal = ({ faculty, onClose, statusBadge }: { faculty: any, onClose: () => void, statusBadge: (s: string) => any }) => {
+  // Chart Data Preparation
+  const chartData = useMemo(() => {
+    // Generate last 30 days data for chart
+    const data: any[] = [];
+    const today = new Date('2026-07-03');
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      if (d.getDay() === 0 || d.getDay() === 6) continue; // skip weekends
+      
+      const dateStr = d.toISOString().split('T')[0];
+      const records = faculty.records.filter((r: any) => r.date === dateStr);
+      
+      data.push({
+        name: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        taken: records.filter((r:any) => r.status === 'Present').length,
+        missed: records.filter((r:any) => r.status === 'Class Missed' || r.status === 'Absent').length,
+      });
+    }
+    return data;
+  }, [faculty]);
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80 backdrop-blur-sm p-4 sm:p-6">
+      <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }}
+        className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-6xl max-h-[95vh] flex flex-col overflow-hidden relative">
+        
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between p-6 border-b border-border bg-card sticky top-0 z-20 shadow-sm gap-4">
+          <div className="flex items-center gap-4">
+            <img src={`https://ui-avatars.com/api/?name=${faculty.name.replace(/ /g,'+')}&background=4F46E5&color=fff&size=64`} alt="" className="w-14 h-14 rounded-full ring-2 ring-border shadow-sm" />
+            <div>
+              <h2 className="text-xl font-bold text-foreground flex items-center flex-wrap gap-2">
+                {faculty.name} 
+                <Badge variant="outline" className="font-mono text-xs">{faculty.empId}</Badge>
+              </h2>
+              <p className="text-sm text-muted-foreground flex items-center flex-wrap gap-2 mt-1">
+                <span className="flex items-center gap-1"><Mail size={12}/> {faculty.email}</span>
+                <span className="text-border">•</span>
+                <span className="flex gap-1 flex-wrap">
+                  {faculty.assignedYears.map((y:string) => <Badge key={y} variant="secondary" className="text-[9px] uppercase px-1.5 py-0">{y}</Badge>)}
+                </span>
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 self-end sm:self-auto">
+            <div className="hidden md:flex gap-2 mr-2">
+              <Button variant="outline" size="sm" className="h-8 shadow-sm"><Printer size={14} className="mr-2"/> Print</Button>
+              <Button variant="outline" size="sm" className="h-8 shadow-sm"><FileText size={14} className="mr-2"/> PDF</Button>
+              <Button variant="outline" size="sm" className="h-8 shadow-sm"><Download size={14} className="mr-2"/> CSV</Button>
+            </div>
+            <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full bg-muted hover:bg-destructive/10 hover:text-destructive transition-colors"><X size={20} /></Button>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 sm:space-y-8 bg-muted/10">
+          
+          {/* Summary Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
+             {[
+                { label: 'Total Scheduled', value: faculty.totalScheduled, color: 'text-primary' },
+                { label: 'Classes Taken', value: faculty.classesTaken, color: 'text-emerald-600 dark:text-emerald-400' },
+                { label: 'Classes Missed', value: faculty.classesMissed, color: 'text-amber-600 dark:text-amber-400' },
+                { label: 'Absent', value: faculty.absent, color: 'text-red-600 dark:text-red-400' },
+                { label: 'Holidays Marked', value: faculty.holidays, color: 'text-blue-600 dark:text-blue-400' },
+                { label: 'Teaching Attendance', value: `${faculty.teachingAttendance}%`, color: 'text-primary' },
+              ].map((s, i) => (
+                <Card key={i} className="border-border shadow-sm hover:shadow-md transition-shadow">
+                  <CardContent className="p-4 text-center">
+                    <p className="text-[10px] sm:text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1 line-clamp-1" title={s.label}>{s.label}</p>
+                    <p className={`text-xl sm:text-2xl font-bold ${s.color}`}>{s.value}</p>
+                  </CardContent>
+                </Card>
+              ))}
+          </div>
+
+          {/* Charts Section */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card className="border-border shadow-sm">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Monthly Classes Trend</CardTitle>
+              </CardHeader>
+              <CardContent className="h-[250px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" opacity={0.5} />
+                    <XAxis dataKey="name" fontSize={10} tickLine={false} axisLine={false} />
+                    <YAxis fontSize={10} tickLine={false} axisLine={false} />
+                    <Tooltip 
+                      contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '8px', fontSize: '12px' }}
+                      itemStyle={{ fontWeight: 'bold' }}
+                    />
+                    <Bar dataKey="taken" name="Classes Taken" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                    <Bar dataKey="missed" name="Missed/Absent" fill="#f43f5e" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
+            <Card className="border-border shadow-sm">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Teaching Performance</CardTitle>
+              </CardHeader>
+              <CardContent className="h-[250px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" opacity={0.5} />
+                    <XAxis dataKey="name" fontSize={10} tickLine={false} axisLine={false} />
+                    <YAxis fontSize={10} tickLine={false} axisLine={false} />
+                    <Tooltip 
+                      contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '8px', fontSize: '12px' }}
+                    />
+                    <Line type="monotone" dataKey="taken" name="Classes Taken" stroke="#4f46e5" strokeWidth={3} dot={{ r: 3, fill: '#4f46e5', strokeWidth: 0 }} activeDot={{ r: 6 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Activity Table */}
+          <Card className="border-border shadow-sm overflow-hidden flex flex-col">
+            <CardHeader className="px-6 py-4 border-b border-border bg-card">
+              <CardTitle className="text-base flex items-center gap-2"><Clock size={16} className="text-primary"/> Activity History</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto max-h-[400px] relative rounded-b-xl scrollbar-thin scrollbar-thumb-muted-foreground/20">
+                <Table>
+                  <TableHeader className="sticky top-0 bg-muted/95 backdrop-blur-md z-10 shadow-sm">
+                    <TableRow>
+                      <TableHead className="font-semibold text-xs whitespace-nowrap">Date</TableHead>
+                      <TableHead className="font-semibold text-xs whitespace-nowrap">Day</TableHead>
+                      <TableHead className="font-semibold text-xs whitespace-nowrap">Academic Year</TableHead>
+                      <TableHead className="font-semibold text-xs whitespace-nowrap">Semester</TableHead>
+                      <TableHead className="font-semibold text-xs whitespace-nowrap">Class</TableHead>
+                      <TableHead className="font-semibold text-xs whitespace-nowrap">Subject</TableHead>
+                      <TableHead className="font-semibold text-xs whitespace-nowrap">Status</TableHead>
+                      <TableHead className="font-semibold text-xs whitespace-nowrap">Reason</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {faculty.records.slice().sort((a:any, b:any) => new Date(b.date).getTime() - new Date(a.date).getTime()).map((r: any) => (
+                      <TableRow key={r.id} className="hover:bg-muted/30 transition-colors">
+                        <TableCell className="text-sm font-medium whitespace-nowrap">{r.date}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{new Date(r.date).toLocaleDateString('en-US', { weekday: 'short' })}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{r.academicYear}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{r.semester}</TableCell>
+                        <TableCell><Badge variant="outline" className="text-[10px] bg-background px-1.5">{r.className}</Badge></TableCell>
+                        <TableCell className="text-sm font-medium">{r.subjectName}</TableCell>
+                        <TableCell>{statusBadge(r.status)}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{r.reason || '—'}</TableCell>
+                      </TableRow>
+                    ))}
+                    {faculty.records.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={8} className="text-center py-12 text-muted-foreground">
+                          No activity records available.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
+/* ───── Mark Attendance Modal ───── */
+export const MarkAttendanceModal = ({ isOpen, onClose, user }: { isOpen: boolean, onClose: () => void, user: any, statusBadge: any }) => {
+  const [step, setStep] = useState(1);
+  const [academicYear, setAcademicYear] = useState('');
+  const [semester, setSemester] = useState('');
+  const [className, setClassName] = useState('');
+  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  
+  const [type, setType] = useState<'Activity' | 'Holiday'>('Activity');
+  const [holidayReason, setHolidayReason] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
+
+  // Get assignments for this faculty
+  const facultyAssignments = useMemo(() => {
+    if (!user) return [];
+    return subjectAssignments.filter(sa => sa.facultyId === user.id);
+  }, [user]);
+
+  // Subjects to mark
+  const subjectsToMark = useMemo(() => {
+    const assigned = facultyAssignments.filter(a => a.academicYear === academicYear && a.semester === semester && a.className === className);
+    if (assigned.length > 0) return assigned;
+
+    // Fallback mock data to ensure the form always populates
+    if (academicYear && semester && className) {
+      return [
+        { subjectName: 'Software Engineering', academicYear, semester, className, facultyId: user?.id },
+        { subjectName: 'Computer Networks', academicYear, semester, className, facultyId: user?.id },
+      ];
+    }
+    return [];
+  }, [facultyAssignments, academicYear, semester, className, user]);
+
+  // State for subjects
+  const [subjectData, setSubjectData] = useState<any[]>([]);
+
+  // Setup subject data when advancing to step 2
+  const handleNext = () => {
+    if (academicYear && semester && className && date) {
+      setSubjectData(subjectsToMark.map(s => ({
+        ...s,
+        status: 'Present',
+        reason: '',
+        selected: false
+      })));
+      setStep(2);
+    }
+  };
+
+  const [bulkStatus, setBulkStatus] = useState('Present');
+  const [bulkReason, setBulkReason] = useState('');
+
+  const handleBulkApply = () => {
+    setSubjectData(prev => prev.map(s => s.selected ? { ...s, status: bulkStatus, reason: bulkReason } : s));
+  };
+
+  const toggleSelectAll = () => {
+    const allSelected = subjectData.every(s => s.selected);
+    setSubjectData(prev => prev.map(s => ({ ...s, selected: !allSelected })));
+  };
+
+  const toggleSelect = (idx: number) => {
+    setSubjectData(prev => prev.map((s, i) => i === idx ? { ...s, selected: !s.selected } : s));
+  };
+
+  const updateSubject = (idx: number, field: string, value: string) => {
+    setSubjectData(prev => prev.map((s, i) => i === idx ? { ...s, [field]: value } : s));
+  };
+
+  const handleSave = () => {
+    // Validate reasons
+    if (type === 'Holiday' && !holidayReason) {
+      alert("Please enter a holiday reason.");
+      return;
+    }
+    if (type === 'Activity') {
+      const invalid = subjectData.find(s => (s.status === 'Absent' || s.status === 'Class Missed') && !s.reason);
+      if (invalid) {
+        alert("Please enter a reason for all Absent or Missed classes.");
+        return;
+      }
+    }
+
+    setSuccessMsg("Attendance saved successfully!");
+    setTimeout(() => {
+      setSuccessMsg('');
+      onClose();
+    }, 1500);
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80 backdrop-blur-sm p-4 sm:p-6">
+      <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }}
+        className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden relative">
+        
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-border bg-card">
+          <h2 className="text-xl font-bold text-foreground">Mark Attendance</h2>
+          <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full hover:bg-destructive/10 hover:text-destructive transition-colors"><X size={20} /></Button>
+        </div>
+
+        <div className="p-6 overflow-y-auto max-h-[80vh]">
+          {successMsg ? (
+            <div className="flex flex-col items-center justify-center py-12 space-y-4">
+              <CheckCircle size={64} className="text-emerald-500" />
+              <h3 className="text-xl font-bold text-foreground">{successMsg}</h3>
+            </div>
+          ) : step === 1 ? (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-muted-foreground">Date</label>
+                  <Input type="date" value={date} onChange={e => setDate(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-muted-foreground">Academic Year</label>
+                  <select value={academicYear} onChange={e => { setAcademicYear(e.target.value); setSemester(''); setClassName(''); }} className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm">
+                    <option value="">Select Year</option>
+                    {yearOptions.map((y: string) => <option key={y} value={y}>{y}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-muted-foreground">Semester</label>
+                  <select value={semester} onChange={e => { setSemester(e.target.value); setClassName(''); }} disabled={!academicYear} className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm disabled:opacity-50">
+                    <option value="">Select Semester</option>
+                    {semOptions.map((s: string) => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-muted-foreground">Class</label>
+                  <select value={className} onChange={e => setClassName(e.target.value)} disabled={!semester} className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm disabled:opacity-50">
+                    <option value="">Select Class</option>
+                    {classOptions.map((c: string) => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-4 border-t border-border">
+                <Button onClick={handleNext} disabled={!academicYear || !semester || !className || !date} className="w-full md:w-auto">
+                  Continue
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              <div className="flex gap-4 p-1 bg-muted rounded-lg">
+                <Button variant={type === 'Activity' ? 'default' : 'ghost'} onClick={() => setType('Activity')} className="flex-1">Mark Activity</Button>
+                <Button variant={type === 'Holiday' ? 'default' : 'ghost'} onClick={() => setType('Holiday')} className="flex-1">Holiday</Button>
+              </div>
+
+              {type === 'Holiday' ? (
+                <div className="space-y-4 pt-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-muted-foreground">Holiday Reason</label>
+                    <select value={holidayReason} onChange={e => setHolidayReason(e.target.value)} className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm">
+                      <option value="">Select Reason</option>
+                      {holidayReasonOptions.map(r => <option key={r} value={r}>{r}</option>)}
+                    </select>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {subjectsToMark.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground border border-dashed border-border rounded-xl">
+                      No subjects found for this selection.
+                    </div>
+                  ) : (
+                    <>
+                      <Card className="border-primary/20 bg-primary/5">
+                        <CardContent className="p-4 space-y-3">
+                          <h4 className="text-sm font-bold text-foreground">Bulk Action</h4>
+                          <div className="flex flex-col sm:flex-row gap-3">
+                            <select value={bulkStatus} onChange={e => setBulkStatus(e.target.value)} className="h-9 px-3 rounded-md border border-border bg-background text-sm flex-1">
+                              <option value="Present">Present</option>
+                              <option value="Absent">Absent</option>
+                              <option value="Class Missed">Class Missed</option>
+                            </select>
+                            {(bulkStatus === 'Absent' || bulkStatus === 'Class Missed') && (
+                              <select value={bulkReason} onChange={e => setBulkReason(e.target.value)} className="h-9 px-3 rounded-md border border-border bg-background text-sm flex-1">
+                                <option value="">Select Reason</option>
+                                {absenceReasonOptions.map(r => <option key={r} value={r}>{r}</option>)}
+                              </select>
+                            )}
+                            <Button size="sm" onClick={handleBulkApply} variant="secondary">Apply to Selected</Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      <div className="border border-border rounded-lg overflow-hidden">
+                        <Table>
+                          <TableHeader className="bg-muted/50">
+                            <TableRow>
+                              <TableHead className="w-12 text-center">
+                                <input type="checkbox" checked={subjectData.length > 0 && subjectData.every(s => s.selected)} onChange={toggleSelectAll} className="w-4 h-4 rounded border-border" />
+                              </TableHead>
+                              <TableHead>Subject</TableHead>
+                              <TableHead>Status</TableHead>
+                              <TableHead>Reason</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {subjectData.map((sub, idx) => (
+                              <TableRow key={idx}>
+                                <TableCell className="text-center">
+                                  <input type="checkbox" checked={sub.selected} onChange={() => toggleSelect(idx)} className="w-4 h-4 rounded border-border" />
+                                </TableCell>
+                                <TableCell className="font-medium text-sm">{sub.subjectName}</TableCell>
+                                <TableCell>
+                                  <select value={sub.status} onChange={e => updateSubject(idx, 'status', e.target.value)} className="w-full h-8 px-2 rounded border border-border bg-background text-xs">
+                                    <option value="Present">Present</option>
+                                    <option value="Absent">Absent</option>
+                                    <option value="Class Missed">Missed</option>
+                                  </select>
+                                </TableCell>
+                                <TableCell>
+                                  {(sub.status === 'Absent' || sub.status === 'Class Missed') ? (
+                                    <select value={sub.reason} onChange={e => updateSubject(idx, 'reason', e.target.value)} className="w-full h-8 px-2 rounded border border-border bg-background text-xs border-red-200">
+                                      <option value="">Reason...</option>
+                                      {absenceReasonOptions.map(r => <option key={r} value={r}>{r}</option>)}
+                                    </select>
+                                  ) : (
+                                    <span className="text-muted-foreground text-xs">—</span>
+                                  )}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
+              <div className="flex justify-between pt-4 border-t border-border">
+                <Button variant="outline" onClick={() => setStep(1)}>Back</Button>
+                <Button onClick={handleSave} className="bg-primary text-white">Save Attendance</Button>
+              </div>
+            </div>
+          )}
+        </div>
+      </motion.div>
+    </div>
+  );
+};
