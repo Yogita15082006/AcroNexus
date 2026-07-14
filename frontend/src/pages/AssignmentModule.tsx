@@ -39,32 +39,32 @@ const itemVariants = {
 
 const COLORS = ['#4F46E5', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
 
-export function AssignmentModule() {
+export function AssignmentModule({ workspaceContext }: { workspaceContext?: any }) {
   const { role } = useAuth();
   
   const [assignments, setAssignments] = useState<Assignment[]>(mockData.assignments);
   const [submissions, setSubmissions] = useState<Submission[]>(mockData.assignmentSubmissions);
 
-  if (['faculty', 'hod', 'coordinator'].includes(role)) {
-    return <AdminAssignmentDashboard assignments={assignments} setAssignments={setAssignments} submissions={submissions} />;
+  if (['faculty', 'hod', 'coordinator', 'both'].includes(role)) {
+    return <AdminAssignmentDashboard assignments={assignments} setAssignments={setAssignments} submissions={submissions} workspaceContext={workspaceContext} />;
   }
   
-  return <StudentAssignmentDashboard assignments={assignments} submissions={submissions} setSubmissions={setSubmissions} />;
+  return <StudentAssignmentDashboard assignments={assignments} submissions={submissions} setSubmissions={setSubmissions} workspaceContext={workspaceContext} />;
 }
 
 // ==========================================
 // ADMIN DASHBOARD
 // ==========================================
-function AdminAssignmentDashboard({ assignments, setAssignments, submissions }: { assignments: Assignment[], setAssignments: any, submissions: Submission[] }) {
+function AdminAssignmentDashboard({ assignments, setAssignments, submissions, workspaceContext }: { assignments: Assignment[], setAssignments: any, submissions: Submission[], workspaceContext?: any }) {
   const { classes, students } = mockData;
-  const [activeClassId, setActiveClassId] = useState(classes[0].id);
+  const [activeClassId, setActiveClassId] = useState(workspaceContext?.classId || classes[0].id);
   const [activeTab, setActiveTab] = useState('overview');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [viewSubmissionsAssignment, setViewSubmissionsAssignment] = useState<Assignment | null>(null);
 
   const stats = useMemo(() => {
-    const classAssignments = assignments.filter(a => a.classId === activeClassId);
+    const classAssignments = workspaceContext ? assignments.filter(a => a.classId === activeClassId && a.subjectId === workspaceContext.subjectId) : assignments.filter(a => a.classId === activeClassId);
     const active = classAssignments.filter(a => a.status === 'Open' || a.status === 'Upcoming').length;
     const completed = classAssignments.filter(a => a.status === 'Expired' || a.status === 'Graded').length;
     
@@ -74,26 +74,32 @@ function AdminAssignmentDashboard({ assignments, setAssignments, submissions }: 
       completed,
       upcomingDeadlines: classAssignments.filter(a => a.status === 'Open' && new Date(a.deadline) > new Date()).length
     };
-  }, [assignments, activeClassId]);
+  }, [assignments, activeClassId, workspaceContext]);
 
   const submissionStats = useMemo(() => {
-    const classAssignments = assignments.filter(a => a.classId === activeClassId);
+    const classAssignments = workspaceContext ? assignments.filter(a => a.classId === activeClassId && a.subjectId === workspaceContext.subjectId) : assignments.filter(a => a.classId === activeClassId);
     const classStudents = students.filter(s => s.classId === activeClassId);
     const classSubmissions = submissions.filter(s => classAssignments.some(a => a.id === s.assignmentId));
 
     const totalStudents = classStudents.length;
     const submitted = classSubmissions.filter(s => s.status === 'Submitted' || s.status === 'Graded').length;
+    const graded = classSubmissions.filter(s => s.status === 'Graded').length;
     const late = classSubmissions.filter(s => s.status === 'Late Submitted').length;
-    // Mocking missing / pending / not downloaded
+    const totalExpected = totalStudents * classAssignments.length;
+    const avgRate = totalExpected > 0 ? Math.round(((submitted + late) / totalExpected) * 100) : 0;
+    
     return {
       totalStudents,
       submitted,
       late,
-      pending: Math.max(0, totalStudents * classAssignments.length - submitted - late),
+      graded,
+      avgRate,
+      pending: Math.max(0, totalExpected - submitted - late),
+      pendingReviews: (submitted + late) - graded
     };
-  }, [submissions, students, assignments, activeClassId]);
+  }, [submissions, students, assignments, activeClassId, workspaceContext]);
 
-  const activeAssignments = useMemo(() => assignments.filter(a => a.classId === activeClassId), [assignments, activeClassId]);
+  const activeAssignments = useMemo(() => workspaceContext ? assignments.filter(a => a.classId === activeClassId && a.subjectId === workspaceContext.subjectId) : assignments.filter(a => a.classId === activeClassId), [assignments, activeClassId, workspaceContext]);
 
   return (
     <motion.div 
@@ -108,6 +114,7 @@ function AdminAssignmentDashboard({ assignments, setAssignments, submissions }: 
           <p className="text-slate-500 mt-1">Create, manage, and analyze student assignments.</p>
         </div>
         <div className="flex items-center gap-3 relative z-20 w-full md:w-auto">
+        {!workspaceContext && (
         <div className="relative">
           <select 
             value={activeClassId} 
@@ -122,6 +129,7 @@ function AdminAssignmentDashboard({ assignments, setAssignments, submissions }: 
             <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7"></path></svg>
           </div>
         </div>
+        )}
         <Button onClick={() => setShowCreateModal(true)} className="h-10 bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-200 cursor-pointer rounded-xl">
             <Plus className="w-4 h-4 mr-2" />
             Create Assignment
@@ -130,47 +138,64 @@ function AdminAssignmentDashboard({ assignments, setAssignments, submissions }: 
       </div>
 
       {/* Tabs */}
-      <div className="flex space-x-1 border-b border-slate-200">
-        {['overview', 'assignments', 'ai-analytics'].map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`px-4 py-3 text-sm font-medium transition-colors relative ${
-              activeTab === tab 
-                ? 'text-indigo-600' 
-                : 'text-slate-500 hover:text-slate-900:text-white'
-            }`}
-          >
-            {tab.charAt(0).toUpperCase() + tab.slice(1).replace('-', ' ')}
-            {activeTab === tab && (
-              <motion.div 
-                layoutId="activeTab" 
-                className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600"
-              />
-            )}
-          </button>
-        ))}
-      </div>
+      {!workspaceContext && (
+        <div className="flex space-x-1 border-b border-slate-200">
+          {['overview', 'assignments', 'ai-analytics'].map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-4 py-3 text-sm font-medium transition-colors relative ${
+                activeTab === tab 
+                  ? 'text-indigo-600' 
+                  : 'text-slate-500 hover:text-slate-900:text-white'
+              }`}
+            >
+              {tab.charAt(0).toUpperCase() + tab.slice(1).replace('-', ' ')}
+              {activeTab === tab && (
+                <motion.div 
+                  layoutId="activeTab" 
+                  className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600"
+                />
+              )}
+            </button>
+          ))}
+        </div>
+      )}
 
-      <AnimatePresence mode="wait">
+      {workspaceContext ? (
         <motion.div
-          key={activeTab}
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -10 }}
           transition={{ duration: 0.2 }}
         >
-          {activeTab === 'overview' && <AdminOverview stats={stats} submissionStats={submissionStats} />}
-          {activeTab === 'assignments' && <AdminAssignmentList assignments={activeAssignments} searchQuery={searchQuery} setSearchQuery={setSearchQuery} onViewSubmissions={setViewSubmissionsAssignment} />}
-          {activeTab === 'ai-analytics' && <AdminAIAnalytics activeClassId={activeClassId} submissions={submissions} assignments={assignments} />}
+          <CompactAssignmentStatsBanner stats={stats} submissionStats={submissionStats} />
+          <AdminAssignmentList assignments={activeAssignments} searchQuery={searchQuery} setSearchQuery={setSearchQuery} onViewSubmissions={setViewSubmissionsAssignment} />
         </motion.div>
-      </AnimatePresence>
+      ) : (
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={activeTab}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.2 }}
+          >
+            {activeTab === 'overview' && <AdminOverview stats={stats} submissionStats={submissionStats} />}
+            {activeTab === 'assignments' && <AdminAssignmentList assignments={activeAssignments} searchQuery={searchQuery} setSearchQuery={setSearchQuery} onViewSubmissions={setViewSubmissionsAssignment} />}
+            {activeTab === 'ai-analytics' && <AdminAIAnalytics activeClassId={activeClassId} submissions={submissions} assignments={assignments} />}
+          </motion.div>
+        </AnimatePresence>
+      )}
 
       {/* Create Modal */}
       {showCreateModal && <CreateAssignmentModal 
         onClose={() => setShowCreateModal(false)} 
-        onSuccess={(newAss) => setAssignments((prev: any) => [newAss, ...prev])}
+        onSuccess={(data) => {
+          setAssignments([...assignments, data]);
+          setShowCreateModal(false);
+        }}
         activeClassId={activeClassId}
+        workspaceContext={workspaceContext}
       />}
 
       {/* Submissions Modal */}
@@ -184,6 +209,43 @@ function AdminAssignmentDashboard({ assignments, setAssignments, submissions }: 
         )}
       </AnimatePresence>
     </motion.div>
+  );
+}
+
+function CompactAssignmentStatsBanner({ stats, submissionStats }: { stats: any, submissionStats: any }) {
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+      <Card className="border-none shadow-sm bg-indigo-50/50">
+        <CardContent className="p-4 flex flex-col items-center justify-center text-center">
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Total Assignments</p>
+          <h3 className="text-2xl font-bold text-indigo-700">{stats.total}</h3>
+        </CardContent>
+      </Card>
+      <Card className="border-none shadow-sm bg-emerald-50/50">
+        <CardContent className="p-4 flex flex-col items-center justify-center text-center">
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Active Assignments</p>
+          <h3 className="text-2xl font-bold text-emerald-700">{stats.active}</h3>
+        </CardContent>
+      </Card>
+      <Card className="border-none shadow-sm bg-amber-50/50">
+        <CardContent className="p-4 flex flex-col items-center justify-center text-center">
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Pending Reviews</p>
+          <h3 className="text-2xl font-bold text-amber-700">{submissionStats.pendingReviews}</h3>
+        </CardContent>
+      </Card>
+      <Card className="border-none shadow-sm bg-blue-50/50">
+        <CardContent className="p-4 flex flex-col items-center justify-center text-center">
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Reviewed</p>
+          <h3 className="text-2xl font-bold text-blue-700">{submissionStats.graded}</h3>
+        </CardContent>
+      </Card>
+      <Card className="border-none shadow-sm bg-violet-50/50">
+        <CardContent className="p-4 flex flex-col items-center justify-center text-center">
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Avg Submit Rate</p>
+          <h3 className="text-2xl font-bold text-violet-700">{submissionStats.avgRate}%</h3>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
@@ -1067,15 +1129,16 @@ function AssignmentPreviewModal({ previewData, onClose }: { previewData: any, on
 
 const assignmentSchema = z.object({
   title: z.string().min(1, "Title is required"),
-  subjectId: z.string().min(1, "Subject is required"),
-  academicYear: z.string().min(1, "Academic Year is required"),
-  semester: z.string().min(1, "Semester is required"),
-  department: z.string().min(1, "Department is required"),
+  subjectId: z.string().optional(),
+  academicYear: z.string().optional(),
+  semester: z.string().optional(),
+  department: z.string().optional(),
   classId: z.string().optional(),
   type: z.string().min(1, "Type is required"),
   deadline: z.string().min(1, "Deadline is required"),
   description: z.string().min(1, "Description is required"),
   instructions: z.string().min(1, "Instructions are required"),
+  gradingCriteria: z.string().optional(),
   maxMarks: z.coerce.number().min(1, "Max marks must be > 0"),
   maxUploadSize: z.string().min(1, "Max upload size is required"),
   allowedFileTypes: z.string().min(1, "Allowed file types are required"),
@@ -1085,14 +1148,14 @@ const assignmentSchema = z.object({
 
 type AssignmentFormValues = z.infer<typeof assignmentSchema>;
 
-function CreateAssignmentModal({ onClose, onSuccess, activeClassId }: { onClose: () => void, onSuccess: (data: any) => void, activeClassId: string }) {
+function CreateAssignmentModal({ onClose, onSuccess, activeClassId, workspaceContext }: { onClose: () => void, onSuccess: (data: any) => void, activeClassId: string, workspaceContext?: { classId: string, className: string, subjectId: string, year: string, semester: string } }) {
   const { subjects, classes } = mockData;
   const [file, setFile] = useState<File | null>(null);
   const [targetClasses, setTargetClasses] = useState<string[]>([]);
 
   const activeClass = classes.find(c => c.id === activeClassId);
-  const defaultDepartment = activeClass?.name.includes('IT') ? 'IT' : 'DS';
-  const defaultAcademicYear = activeClass?.year || 'Second Year';
+  const defaultDepartment = workspaceContext ? (workspaceContext.className.includes('IT') ? 'IT' : 'DS') : (activeClass?.name.includes('IT') ? 'IT' : 'DS');
+  const defaultAcademicYear = workspaceContext?.year || activeClass?.year || 'Second Year';
 
   const { register, handleSubmit, watch, formState: { errors } } = useForm<AssignmentFormValues>({
     resolver: zodResolver(assignmentSchema) as any,
@@ -1102,8 +1165,9 @@ function CreateAssignmentModal({ onClose, onSuccess, activeClassId }: { onClose:
       maxUploadSize: '10 MB',
       allowedFileTypes: 'PDF, DOCX, ZIP',
       academicYear: defaultAcademicYear,
-      semester: '',
+      semester: workspaceContext?.semester || '',
       department: defaultDepartment,
+      subjectId: workspaceContext?.subjectId || '',
       type: 'PDF Assignment'
     }
   });
@@ -1112,7 +1176,7 @@ function CreateAssignmentModal({ onClose, onSuccess, activeClassId }: { onClose:
   const selectedDept = watch('department');
   const isLateSubmissionAllowed = watch('lateSubmissionAllowed');
   
-  const availableClasses = classes.filter(c => c.year === selectedYear && c.name.includes(selectedDept));
+  const availableClasses = classes.filter(c => c.year === selectedYear && c.name.includes(selectedDept || ''));
 
   const toggleClass = (className: string) => {
     setTargetClasses(prev => 
@@ -1132,8 +1196,8 @@ function CreateAssignmentModal({ onClose, onSuccess, activeClassId }: { onClose:
     const newAssignment = {
       id: `a-${Date.now()}`,
       ...data,
-      targetClasses,
-      classId: availableClasses[0]?.id || activeClassId,
+      targetClasses: workspaceContext ? [workspaceContext.className] : targetClasses,
+      classId: workspaceContext ? workspaceContext.classId : (availableClasses[0]?.id || activeClassId),
       status: 'Open',
       attachmentUrl: file ? URL.createObjectURL(file) : undefined,
       createdAt: new Date().toISOString()
@@ -1152,7 +1216,7 @@ function CreateAssignmentModal({ onClose, onSuccess, activeClassId }: { onClose:
       >
         <div className="sticky top-0 bg-white/80 backdrop-blur-md p-6 border-b border-slate-100 flex justify-between items-center z-10">
           <h2 className="text-xl font-bold text-slate-900">Create New Assignment</h2>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100:bg-slate-800 rounded-full transition-colors">
+          <button onClick={onClose} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors">
             <X className="w-5 h-5 text-slate-500" />
           </button>
         </div>
@@ -1167,91 +1231,95 @@ function CreateAssignmentModal({ onClose, onSuccess, activeClassId }: { onClose:
                 {errors.title && <p className="text-xs text-rose-500">{errors.title.message}</p>}
               </div>
               
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700">Subject *</label>
-                <select {...register('subjectId')} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-indigo-500 outline-none">
-                  <option value="">Select Subject</option>
-                  {subjects.map(s => (
-                    <option key={s.id} value={s.id}>{s.name}</option>
-                  ))}
-                </select>
-                {errors.subjectId && <p className="text-xs text-rose-500">{errors.subjectId.message}</p>}
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700">Academic Year *</label>
-                <select {...register('academicYear')} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-indigo-500 outline-none">
-                  <option value="">Select Year</option>
-                  <option value="Second Year">2nd Year</option>
-                  <option value="Third Year">3rd Year</option>
-                  <option value="Fourth Year">4th Year</option>
-                </select>
-                {errors.academicYear && <p className="text-xs text-rose-500">{errors.academicYear.message}</p>}
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700">Semester *</label>
-                <select {...register('semester')} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-indigo-500 outline-none">
-                  <option value="">Select Semester</option>
-                  <option value="Semester 3">Semester 3</option>
-                  <option value="Semester 4">Semester 4</option>
-                  <option value="Semester 5">Semester 5</option>
-                  <option value="Semester 6">Semester 6</option>
-                  <option value="Semester 7">Semester 7</option>
-                  <option value="Semester 8">Semester 8</option>
-                </select>
-                {errors.semester && <p className="text-xs text-rose-500">{errors.semester.message}</p>}
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700">Department *</label>
-                <select {...register('department')} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-indigo-500 outline-none">
-                  <option value="">Select Department</option>
-                  <option value="IT">Information Technology (IT)</option>
-                  <option value="DS">Data Science (DS)</option>
-                </select>
-                {errors.department && <p className="text-xs text-rose-500">{errors.department.message}</p>}
-              </div>
-
-              <div className="space-y-2 md:col-span-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium text-slate-700">Target Classes *</label>
-                  {availableClasses.length > 0 && (
-                    <button type="button" onClick={selectAllClasses} className="text-xs font-semibold text-indigo-600 hover:underline">
-                      {targetClasses.length === availableClasses.length ? 'Deselect All' : 'Select All'}
-                    </button>
-                  )}
-                </div>
-                {availableClasses.length === 0 ? (
-                  <p className="text-sm text-slate-400 italic p-3 bg-slate-50 rounded-xl border border-slate-100">
-                    Select Academic Year and Department to view available classes.
-                  </p>
-                ) : (
-                  <div className="flex flex-wrap gap-3">
-                    {availableClasses.map(cls => (
-                      <label 
-                        key={cls.id} 
-                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 cursor-pointer transition-all text-sm font-medium ${
-                          targetClasses.includes(cls.name) 
-                            ? 'border-indigo-500 bg-indigo-50 text-indigo-700' 
-                            : 'border-slate-200 bg-white hover:border-indigo-200 text-slate-700'
-                        }`}
-                      >
-                        <input 
-                          type="checkbox" 
-                          checked={targetClasses.includes(cls.name)} 
-                          onChange={() => toggleClass(cls.name)}
-                          className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                        />
-                        {cls.name}
-                      </label>
-                    ))}
+              {!workspaceContext && (
+                <>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700">Subject *</label>
+                    <select {...register('subjectId')} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-indigo-500 outline-none">
+                      <option value="">Select Subject</option>
+                      {subjects.map(s => (
+                        <option key={s.id} value={s.id}>{s.name}</option>
+                      ))}
+                    </select>
+                    {errors.subjectId && <p className="text-xs text-rose-500">{errors.subjectId.message}</p>}
                   </div>
-                )}
-              </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700">Academic Year *</label>
+                    <select {...register('academicYear')} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-indigo-500 outline-none">
+                      <option value="">Select Year</option>
+                      <option value="Second Year">2nd Year</option>
+                      <option value="Third Year">3rd Year</option>
+                      <option value="Fourth Year">4th Year</option>
+                    </select>
+                    {errors.academicYear && <p className="text-xs text-rose-500">{errors.academicYear.message}</p>}
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700">Semester *</label>
+                    <select {...register('semester')} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-indigo-500 outline-none">
+                      <option value="">Select Semester</option>
+                      <option value="Semester 3">Semester 3</option>
+                      <option value="Semester 4">Semester 4</option>
+                      <option value="Semester 5">Semester 5</option>
+                      <option value="Semester 6">Semester 6</option>
+                      <option value="Semester 7">Semester 7</option>
+                      <option value="Semester 8">Semester 8</option>
+                    </select>
+                    {errors.semester && <p className="text-xs text-rose-500">{errors.semester.message}</p>}
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700">Department *</label>
+                    <select {...register('department')} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-indigo-500 outline-none">
+                      <option value="">Select Department</option>
+                      <option value="IT">Information Technology (IT)</option>
+                      <option value="DS">Data Science (DS)</option>
+                    </select>
+                    {errors.department && <p className="text-xs text-rose-500">{errors.department.message}</p>}
+                  </div>
+
+                  <div className="space-y-2 md:col-span-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium text-slate-700">Target Classes *</label>
+                      {availableClasses.length > 0 && (
+                        <button type="button" onClick={selectAllClasses} className="text-xs font-semibold text-indigo-600 hover:underline">
+                          {targetClasses.length === availableClasses.length ? 'Deselect All' : 'Select All'}
+                        </button>
+                      )}
+                    </div>
+                    {availableClasses.length === 0 ? (
+                      <p className="text-sm text-slate-400 italic p-3 bg-slate-50 rounded-xl border border-slate-100">
+                        Select Academic Year and Department to view available classes.
+                      </p>
+                    ) : (
+                      <div className="flex flex-wrap gap-3">
+                        {availableClasses.map(cls => (
+                          <label 
+                            key={cls.id} 
+                            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 cursor-pointer transition-all text-sm font-medium ${
+                              targetClasses.includes(cls.name) 
+                                ? 'border-indigo-500 bg-indigo-50 text-indigo-700' 
+                                : 'border-slate-200 bg-white hover:border-indigo-200 text-slate-700'
+                            }`}
+                          >
+                            <input 
+                              type="checkbox" 
+                              checked={targetClasses.includes(cls.name)} 
+                              onChange={() => toggleClass(cls.name)}
+                              className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                            />
+                            {cls.name}
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700">Assignment Type *</label>
+                <label className="text-sm font-medium text-slate-700">Submission Type *</label>
                 <select {...register('type')} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-indigo-500 outline-none">
                   <option value="PDF Assignment">PDF Assignment</option>
                   <option value="Document Assignment">Document Assignment</option>
@@ -1276,6 +1344,11 @@ function CreateAssignmentModal({ onClose, onSuccess, activeClassId }: { onClose:
                 <label className="text-sm font-medium text-slate-700">Instructions *</label>
                 <textarea {...register('instructions')} rows={3} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="1. Submit before deadline&#10;2. Use standard naming convention..." />
                 {errors.instructions && <p className="text-xs text-rose-500">{errors.instructions.message}</p>}
+              </div>
+
+              <div className="space-y-2 md:col-span-2">
+                <label className="text-sm font-medium text-slate-700">Grading Criteria</label>
+                <textarea {...register('gradingCriteria')} rows={2} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="Provide grading criteria..." />
               </div>
               
               <div className="space-y-2">
@@ -1322,7 +1395,7 @@ function CreateAssignmentModal({ onClose, onSuccess, activeClassId }: { onClose:
                     onChange={e => e.target.files && setFile(e.target.files[0])}
                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                   />
-                  <div className={`border-2 border-dashed ${file ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200 bg-slate-50 hover:bg-slate-100:bg-slate-900'} rounded-2xl p-8 flex flex-col items-center justify-center transition-colors`}>
+                  <div className={`border-2 border-dashed ${file ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30' : 'border-slate-200 bg-slate-50 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700'} rounded-2xl p-8 flex flex-col items-center justify-center transition-colors`}>
                     {file ? (
                       <>
                         <FileCode className="w-8 h-8 text-indigo-500 mb-2" />
@@ -1357,15 +1430,22 @@ function CreateAssignmentModal({ onClose, onSuccess, activeClassId }: { onClose:
 // ==========================================
 // STUDENT DASHBOARD
 // ==========================================
-function StudentAssignmentDashboard({ assignments, submissions, setSubmissions }: { assignments: Assignment[], submissions: Submission[], setSubmissions: any }) {
+function StudentAssignmentDashboard({ assignments, submissions, setSubmissions, workspaceContext }: { assignments: Assignment[], submissions: Submission[], setSubmissions: any, workspaceContext?: any }) {
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
 
   const { subjects } = mockData;
   
   // Assuming the user is a student, we filter by their class
-  // For mock purposes, just take random assignments or all
-  const studentAssignments = useMemo(() => assignments, [assignments]);
+  // Filter by subject if workspaceContext is provided
+  const studentAssignments = useMemo(() => {
+    let filtered = assignments.filter(a => a.classId === user?.classId);
+    if (workspaceContext?.subjectId) {
+      filtered = filtered.filter(a => a.subjectId === workspaceContext.subjectId);
+    }
+    return filtered;
+  }, [assignments, workspaceContext, user]);
 
   const filtered = studentAssignments.filter(a => 
     a.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -1411,7 +1491,7 @@ function StudentAssignmentDashboard({ assignments, submissions, setSubmissions }
           {filtered.map(assignment => {
             const subject = subjects.find(s => s.id === assignment.subjectId);
             // Mock submission lookup
-            const submission = submissions.find(s => s.assignmentId === assignment.id);
+            const submission = submissions.find(s => s.assignmentId === assignment.id && s.studentId === user?.id);
             const status = submission ? submission.status : assignment.status;
             
             const daysRemaining = Math.ceil((new Date(assignment.deadline).getTime() - new Date().getTime()) / (1000 * 3600 * 24));
@@ -1498,9 +1578,10 @@ function StudentAssignmentDashboard({ assignments, submissions, setSubmissions }
 }
 
 function StudentAssignmentModal({ assignment, submissions, setSubmissions, onClose }: { assignment: Assignment, submissions: Submission[], setSubmissions: any, onClose: () => void }) {
+  const { user } = useAuth();
   const { subjects } = mockData;
   const subject = subjects.find(s => s.id === assignment.subjectId);
-  const submission = submissions.find(s => s.assignmentId === assignment.id);
+  const submission = submissions.find(s => s.assignmentId === assignment.id && s.studentId === user?.id);
   const status = submission ? submission.status : assignment.status;
   
   const [file, setFile] = useState<File | null>(null);
@@ -1516,7 +1597,7 @@ function StudentAssignmentModal({ assignment, submissions, setSubmissions, onClo
       const newSubmission = {
         id: `sub-${Date.now()}`,
         assignmentId: assignment.id,
-        studentId: 'st-0', // Using generic student mock
+        studentId: user?.id || 'st-0',
         submitDate: new Date().toISOString(),
         status: isLate ? 'Late Submitted' : 'Submitted',
         fileName: file?.name || 'submission.pdf',
@@ -1527,7 +1608,7 @@ function StudentAssignmentModal({ assignment, submissions, setSubmissions, onClo
 
       setSubmissions((prev: any) => {
         // replace old submission if exists
-        const filtered = prev.filter((s: any) => s.assignmentId !== assignment.id);
+        const filtered = prev.filter((s: any) => !(s.assignmentId === assignment.id && s.studentId === user?.id));
         return [newSubmission, ...filtered];
       });
 
@@ -1550,7 +1631,7 @@ function StudentAssignmentModal({ assignment, submissions, setSubmissions, onClo
             <Badge variant="date" className="bg-indigo-100 text-indigo-700 border-none">
               {subject?.name}
             </Badge>
-            <button onClick={onClose} className="p-2 md:hidden hover:bg-slate-200:bg-slate-800 rounded-full">
+            <button onClick={onClose} className="p-2 md:hidden hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full">
               <X className="w-5 h-5 text-slate-500" />
             </button>
           </div>
@@ -1599,18 +1680,18 @@ function StudentAssignmentModal({ assignment, submissions, setSubmissions, onClo
                   href={assignment.attachmentUrl} 
                   target="_blank" 
                   rel="noreferrer"
-                  className="flex items-center justify-between p-3 rounded-xl border border-slate-200 bg-white hover:border-indigo-300:border-indigo-500 transition-colors group"
+                  className="flex items-center justify-between p-3 rounded-xl border border-slate-200 bg-white hover:border-indigo-300 dark:hover:border-indigo-500 transition-colors group"
                 >
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-indigo-50 rounded-lg">
                       <File className="w-5 h-5 text-indigo-600" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-slate-900 group-hover:text-indigo-600:text-indigo-400 transition-colors">Assignment_Doc.pdf</p>
+                      <p className="text-sm font-medium text-slate-900 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">Assignment_Doc.pdf</p>
                       <p className="text-xs text-slate-500">1.2 MB</p>
                     </div>
                   </div>
-                  <Download className="w-4 h-4 text-slate-400 group-hover:text-indigo-600:text-indigo-400" />
+                  <Download className="w-4 h-4 text-slate-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400" />
                 </a>
               </div>
             )}
@@ -1619,7 +1700,7 @@ function StudentAssignmentModal({ assignment, submissions, setSubmissions, onClo
 
         {/* Right Side: Submission */}
         <div className="w-full md:w-1/2 p-6 md:p-8 flex flex-col bg-white relative">
-          <button onClick={onClose} className="absolute top-6 right-6 p-2 hidden md:block hover:bg-slate-100:bg-slate-800 rounded-full transition-colors">
+          <button onClick={onClose} className="absolute top-6 right-6 p-2 hidden md:block hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors">
             <X className="w-5 h-5 text-slate-500" />
           </button>
 
@@ -1684,7 +1765,7 @@ function StudentAssignmentModal({ assignment, submissions, setSubmissions, onClo
                   className={`border-2 border-dashed rounded-3xl p-8 flex flex-col items-center justify-center transition-all ${
                     file 
                       ? 'border-indigo-500 bg-indigo-50/50' 
-                      : 'border-slate-200 bg-slate-50 hover:bg-slate-100:bg-slate-900'
+                      : 'border-slate-200 bg-slate-50 hover:bg-slate-100 dark:hover:bg-slate-900'
                   } ${!canSubmit && 'opacity-50 pointer-events-none'}`}
                 >
                   {file ? (

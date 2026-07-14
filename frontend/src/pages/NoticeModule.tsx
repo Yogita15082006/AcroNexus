@@ -15,6 +15,7 @@ const PRIORITIES = ['Normal', 'Important', 'High', 'Urgent'];
 export const NoticeModule = () => {
   const { role, user } = useAuth();
   const isAdmin = ['hod', 'coordinator'].includes(role);
+  const canCreateNotice = isAdmin || role === 'faculty' || role === 'both';
 
   
   // UI State
@@ -24,7 +25,7 @@ export const NoticeModule = () => {
   const initialNotices = isAdmin 
     ? mockData.notices 
     : mockData.notices.filter((n: any) => {
-        if (role === 'faculty') {
+        if (role === 'faculty' || role === 'both') {
           const facultyClassNames = (user?.classes || []).map((c: string) => {
             const parts = c.split('_');
             return parts.length > 1 ? parts[1].replace(/(\D+)(\d+)/, '$1-$2') : c;
@@ -453,7 +454,7 @@ export const NoticeModule = () => {
             <span className="text-xs font-bold text-muted-foreground flex items-center gap-1 ml-2"><Calendar size={14}/> Published: {selectedNotice.publishDate}</span>
             <span className="text-xs font-bold text-muted-foreground flex items-center gap-1"><Clock size={14}/> Expiry: {selectedNotice.expiryDate}</span>
           </div>
-          {isAdmin && (
+          {canCreateNotice && (
             <div className="flex gap-2">
               <Button variant="outline" size="sm" className="font-bold"><Edit size={14} className="mr-2"/> Edit</Button>
               <Button variant="outline" size="sm" className="text-rose-500 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-900/20 font-bold"><Trash2 size={14} className="mr-2"/> Delete</Button>
@@ -484,7 +485,7 @@ export const NoticeModule = () => {
                   </div>
                   <div className="flex items-center gap-2">
                     <Button variant="ghost" size="icon" className="text-primary hover:bg-primary/10" title="View Attachment"><Eye size={16}/></Button>
-                    {(selectedNotice.allowDownloads || isAdmin) && <Button variant="ghost" size="icon" className="text-muted-foreground hover:bg-accent" title="Download Attachment"><DownloadCloud size={16}/></Button>}
+                    {(selectedNotice.allowDownloads || canCreateNotice) && <Button variant="ghost" size="icon" className="text-muted-foreground hover:bg-accent" title="Download Attachment"><DownloadCloud size={16}/></Button>}
                   </div>
                 </div>
               ))}
@@ -548,10 +549,10 @@ export const NoticeModule = () => {
               <Bell className="text-primary" size={28} /> Notice Board
             </h1>
             <p className="text-sm text-muted-foreground font-medium mt-1">
-              {isAdmin ? 'Digital notice management system.' : 'Stay updated with the latest class announcements.'}
+              {canCreateNotice ? 'Digital notice management system.' : 'Stay updated with the latest class announcements.'}
             </p>
           </div>
-          {isAdmin && currentView === 'dashboard' && (
+          {canCreateNotice && currentView === 'dashboard' && (
             <Button onClick={() => setCurrentView('create_notice')} className="bg-primary hover:bg-primary/90 text-white font-bold px-6 py-2 rounded-xl shadow-lg shadow-primary/20 transition-all gap-2">
               <Plus size={18} /> Create Notice
             </Button>
@@ -561,7 +562,7 @@ export const NoticeModule = () => {
 
       <div className="p-4 md:p-8 space-y-8 max-w-screen-2xl mx-auto pb-24 lg:pb-8">
         {currentView === 'dashboard' && isAdmin && renderAdminDashboard()}
-        {currentView === 'create_notice' && isAdmin && renderCreateNotice()}
+        {currentView === 'create_notice' && canCreateNotice && renderCreateNotice()}
         {currentView === 'dashboard' && !isAdmin && renderStudentDashboard()}
         {currentView === 'notice_details' && selectedNotice && renderNoticeDetails()}
       </div>

@@ -6,10 +6,9 @@ import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, LineChart, Line } from 'recharts';
 import { 
   CheckCircle, XCircle, AlertTriangle, Sun, X, ChevronDown, Search, 
-  Users, BookOpen, Clock, Printer, Download, FileText, User as UserIcon, Mail, Plus
+  Users, BookOpen, User as UserIcon, Mail, Plus
 } from 'lucide-react';
 import { 
   subjectAssignments, mockActivityRecords,
@@ -17,6 +16,7 @@ import {
   holidayReasonOptions, absenceReasonOptions
 } from '../data/facultyActivityData';
 import { mockData } from '../data/mockData';
+import { AdminTeachingHistory } from './AttendanceModule';
 
 /* ───── MultiSelect Dropdown ───── */
 const MultiSelect = ({ label, options, selected, onChange }: { label: string; options: string[]; selected: string[]; onChange: (v: string[]) => void }) => {
@@ -67,6 +67,7 @@ export const FacultyActivityModule = () => {
   const [subjects, setSubjects] = useState<string[]>([]);
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState('name-asc');
+  const [activeTab, setActiveTab] = useState<'directory' | 'teachingHistory'>('directory');
   
   const [selectedFaculty, setSelectedFaculty] = useState<any | null>(null);
   const [showMarkAttendance, setShowMarkAttendance] = useState(false);
@@ -217,14 +218,32 @@ export const FacultyActivityModule = () => {
           <h1 className="text-2xl font-bold text-foreground tracking-tight">Faculty Activity Directory</h1>
           <p className="text-sm text-muted-foreground mt-1">Monitor and analyze faculty teaching activities, attendance, and assignments.</p>
         </div>
-        {user?.role !== 'student' && (
-          <Button onClick={() => setShowMarkAttendance(true)} className="gap-2 shrink-0 shadow-sm bg-primary text-white hover:bg-primary/90">
-            <Plus size={16} /> Mark Attendance
-          </Button>
-        )}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
+          <div className="flex bg-muted/50 p-1 rounded-lg border border-border/50">
+            <button 
+              onClick={() => setActiveTab('directory')} 
+              className={`px-4 py-1.5 text-sm font-semibold rounded-md transition-all flex-1 sm:flex-none flex items-center gap-2 justify-center ${activeTab === 'directory' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              📁 Activity Directory
+            </button>
+            <button 
+              onClick={() => setActiveTab('teachingHistory')} 
+              className={`px-4 py-1.5 text-sm font-semibold rounded-md transition-all flex-1 sm:flex-none flex items-center gap-2 justify-center ${activeTab === 'teachingHistory' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              📖 Teaching History
+            </button>
+          </div>
+          {user?.role !== 'student' && (
+            <Button onClick={() => setShowMarkAttendance(true)} className="gap-2 shrink-0 shadow-sm bg-primary text-white hover:bg-primary/90">
+              <Plus size={16} /> Mark Attendance
+            </Button>
+          )}
+        </div>
       </div>
 
-      {/* Top Search & Filter Bar */}
+      {activeTab === 'directory' && (
+        <>
+          {/* Top Search & Filter Bar */}
       <Card className="border-border shadow-sm relative z-30 !overflow-visible">
         <CardContent className="p-4 space-y-4 !overflow-visible">
           <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center">
@@ -339,6 +358,12 @@ export const FacultyActivityModule = () => {
           <p className="text-sm text-muted-foreground mt-1">Try adjusting your search or filters.</p>
         </div>
       )}
+      </>
+      )}
+
+      {activeTab === 'teachingHistory' && (
+        <AdminTeachingHistory />
+      )}
 
       {/* Activity Details Modal */}
       <AnimatePresence>
@@ -346,7 +371,6 @@ export const FacultyActivityModule = () => {
           <ActivityModal 
             faculty={selectedFaculty} 
             onClose={() => setSelectedFaculty(null)} 
-            statusBadge={statusBadge} 
           />
         )}
       </AnimatePresence>
@@ -367,36 +391,14 @@ export const FacultyActivityModule = () => {
 };
 
 /* ───── Detailed Activity Modal ───── */
-const ActivityModal = ({ faculty, onClose, statusBadge }: { faculty: any, onClose: () => void, statusBadge: (s: string) => any }) => {
-  // Chart Data Preparation
-  const chartData = useMemo(() => {
-    // Generate last 30 days data for chart
-    const data: any[] = [];
-    const today = new Date('2026-07-03');
-    for (let i = 29; i >= 0; i--) {
-      const d = new Date(today);
-      d.setDate(d.getDate() - i);
-      if (d.getDay() === 0 || d.getDay() === 6) continue; // skip weekends
-      
-      const dateStr = d.toISOString().split('T')[0];
-      const records = faculty.records.filter((r: any) => r.date === dateStr);
-      
-      data.push({
-        name: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        taken: records.filter((r:any) => r.status === 'Present').length,
-        missed: records.filter((r:any) => r.status === 'Class Missed' || r.status === 'Absent').length,
-      });
-    }
-    return data;
-  }, [faculty]);
-
+const ActivityModal = ({ faculty, onClose }: { faculty: any, onClose: () => void }) => {
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80 backdrop-blur-sm p-4 sm:p-6">
       <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }}
         className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-6xl max-h-[95vh] flex flex-col overflow-hidden relative">
         
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between p-6 border-b border-border bg-card sticky top-0 z-20 shadow-sm gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 sm:p-6 border-b border-border bg-card sticky top-0 z-20 shadow-sm gap-4">
           <div className="flex items-center gap-4">
             <img src={`https://ui-avatars.com/api/?name=${faculty.name.replace(/ /g,'+')}&background=4F46E5&color=fff&size=64`} alt="" className="w-14 h-14 rounded-full ring-2 ring-border shadow-sm" />
             <div>
@@ -408,131 +410,18 @@ const ActivityModal = ({ faculty, onClose, statusBadge }: { faculty: any, onClos
                 <span className="flex items-center gap-1"><Mail size={12}/> {faculty.email}</span>
                 <span className="text-border">•</span>
                 <span className="flex gap-1 flex-wrap">
-                  {faculty.assignedYears.map((y:string) => <Badge key={y} variant="secondary" className="text-[9px] uppercase px-1.5 py-0">{y}</Badge>)}
+                  {faculty.assignedYears?.map((y:string) => <Badge key={y} variant="secondary" className="text-[9px] uppercase px-1.5 py-0">{y}</Badge>)}
                 </span>
               </p>
             </div>
           </div>
           <div className="flex items-center gap-3 self-end sm:self-auto">
-            <div className="hidden md:flex gap-2 mr-2">
-              <Button variant="outline" size="sm" className="h-8 shadow-sm"><Printer size={14} className="mr-2"/> Print</Button>
-              <Button variant="outline" size="sm" className="h-8 shadow-sm"><FileText size={14} className="mr-2"/> PDF</Button>
-              <Button variant="outline" size="sm" className="h-8 shadow-sm"><Download size={14} className="mr-2"/> CSV</Button>
-            </div>
             <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full bg-muted hover:bg-destructive/10 hover:text-destructive transition-colors"><X size={20} /></Button>
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 sm:space-y-8 bg-muted/10">
-          
-          {/* Summary Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
-             {[
-                { label: 'Total Scheduled', value: faculty.totalScheduled, color: 'text-primary' },
-                { label: 'Classes Taken', value: faculty.classesTaken, color: 'text-emerald-600 dark:text-emerald-400' },
-                { label: 'Classes Missed', value: faculty.classesMissed, color: 'text-amber-600 dark:text-amber-400' },
-                { label: 'Absent', value: faculty.absent, color: 'text-red-600 dark:text-red-400' },
-                { label: 'Holidays Marked', value: faculty.holidays, color: 'text-blue-600 dark:text-blue-400' },
-                { label: 'Teaching Attendance', value: `${faculty.teachingAttendance}%`, color: 'text-primary' },
-              ].map((s, i) => (
-                <Card key={i} className="border-border shadow-sm hover:shadow-md transition-shadow">
-                  <CardContent className="p-4 text-center">
-                    <p className="text-[10px] sm:text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1 line-clamp-1" title={s.label}>{s.label}</p>
-                    <p className={`text-xl sm:text-2xl font-bold ${s.color}`}>{s.value}</p>
-                  </CardContent>
-                </Card>
-              ))}
-          </div>
-
-          {/* Charts Section */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card className="border-border shadow-sm">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Monthly Classes Trend</CardTitle>
-              </CardHeader>
-              <CardContent className="h-[250px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" opacity={0.5} />
-                    <XAxis dataKey="name" fontSize={10} tickLine={false} axisLine={false} />
-                    <YAxis fontSize={10} tickLine={false} axisLine={false} />
-                    <Tooltip 
-                      contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '8px', fontSize: '12px' }}
-                      itemStyle={{ fontWeight: 'bold' }}
-                    />
-                    <Bar dataKey="taken" name="Classes Taken" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={40} />
-                    <Bar dataKey="missed" name="Missed/Absent" fill="#f43f5e" radius={[4, 4, 0, 0]} maxBarSize={40} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-
-            <Card className="border-border shadow-sm">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Teaching Performance</CardTitle>
-              </CardHeader>
-              <CardContent className="h-[250px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" opacity={0.5} />
-                    <XAxis dataKey="name" fontSize={10} tickLine={false} axisLine={false} />
-                    <YAxis fontSize={10} tickLine={false} axisLine={false} />
-                    <Tooltip 
-                      contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '8px', fontSize: '12px' }}
-                    />
-                    <Line type="monotone" dataKey="taken" name="Classes Taken" stroke="#4f46e5" strokeWidth={3} dot={{ r: 3, fill: '#4f46e5', strokeWidth: 0 }} activeDot={{ r: 6 }} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Activity Table */}
-          <Card className="border-border shadow-sm overflow-hidden flex flex-col">
-            <CardHeader className="px-6 py-4 border-b border-border bg-card">
-              <CardTitle className="text-base flex items-center gap-2"><Clock size={16} className="text-primary"/> Activity History</CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="overflow-x-auto max-h-[400px] relative rounded-b-xl scrollbar-thin scrollbar-thumb-muted-foreground/20">
-                <Table>
-                  <TableHeader className="sticky top-0 bg-muted/95 backdrop-blur-md z-10 shadow-sm">
-                    <TableRow>
-                      <TableHead className="font-semibold text-xs whitespace-nowrap">Date</TableHead>
-                      <TableHead className="font-semibold text-xs whitespace-nowrap">Day</TableHead>
-                      <TableHead className="font-semibold text-xs whitespace-nowrap">Academic Year</TableHead>
-                      <TableHead className="font-semibold text-xs whitespace-nowrap">Semester</TableHead>
-                      <TableHead className="font-semibold text-xs whitespace-nowrap">Class</TableHead>
-                      <TableHead className="font-semibold text-xs whitespace-nowrap">Subject</TableHead>
-                      <TableHead className="font-semibold text-xs whitespace-nowrap">Status</TableHead>
-                      <TableHead className="font-semibold text-xs whitespace-nowrap">Reason</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {faculty.records.slice().sort((a:any, b:any) => new Date(b.date).getTime() - new Date(a.date).getTime()).map((r: any) => (
-                      <TableRow key={r.id} className="hover:bg-muted/30 transition-colors">
-                        <TableCell className="text-sm font-medium whitespace-nowrap">{r.date}</TableCell>
-                        <TableCell className="text-sm text-muted-foreground">{new Date(r.date).toLocaleDateString('en-US', { weekday: 'short' })}</TableCell>
-                        <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{r.academicYear}</TableCell>
-                        <TableCell className="text-xs text-muted-foreground">{r.semester}</TableCell>
-                        <TableCell><Badge variant="outline" className="text-[10px] bg-background px-1.5">{r.className}</Badge></TableCell>
-                        <TableCell className="text-sm font-medium">{r.subjectName}</TableCell>
-                        <TableCell>{statusBadge(r.status)}</TableCell>
-                        <TableCell className="text-sm text-muted-foreground">{r.reason || '—'}</TableCell>
-                      </TableRow>
-                    ))}
-                    {faculty.records.length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={8} className="text-center py-12 text-muted-foreground">
-                          No activity records available.
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-          </Card>
-
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-muted/10">
+          <AdminTeachingHistory readOnlyFacultyId={faculty.id} />
         </div>
       </motion.div>
     </div>
@@ -615,11 +504,48 @@ export const MarkAttendanceModal = ({ isOpen, onClose, user }: { isOpen: boolean
       return;
     }
     if (type === 'Activity') {
-      const invalid = subjectData.find(s => (s.status === 'Absent' || s.status === 'Class Missed') && !s.reason);
+      const selectedSubjects = subjectData.filter(s => s.selected);
+      if (selectedSubjects.length === 0) {
+        alert("Please select at least one subject to mark attendance.");
+        return;
+      }
+      
+      const invalid = selectedSubjects.find(s => (s.status === 'Absent' || s.status === 'Class Missed') && !s.reason);
       if (invalid) {
         alert("Please enter a reason for all Absent or Missed classes.");
         return;
       }
+    }
+
+    // Check for overlapping/existing records for the same date and class to prevent duplicates
+    if (type === 'Activity') {
+      const existingRecords = mockActivityRecords.filter(r => r.date === date && r.facultyId === user.id);
+      const selectedSubjects = subjectData.filter(s => s.selected);
+      const overlapping = selectedSubjects.find(s => existingRecords.some(r => r.subjectName === s.subjectName && r.className === s.className));
+      if (overlapping) {
+        alert(`An activity record already exists for ${overlapping.subjectName} in ${overlapping.className} on ${date}.`);
+        return;
+      }
+    }
+
+    if (type === 'Holiday') {
+       mockActivityRecords.push({
+            id: `HOL-${date}-${className}-${semester}-${Math.random().toString(36).slice(2,6)}`, 
+            facultyId: '', facultyName: 'All Faculty',
+            subjectName: '-', date: date, status: 'Holiday',
+            reason: holidayReason,
+            className: className, semester: semester, academicYear: academicYear
+       });
+    } else {
+       subjectData.filter(s => s.selected).forEach((s, idx) => {
+         mockActivityRecords.push({
+            id: `ACT-${date}-${idx}-${Math.random().toString(36).slice(2,6)}`,
+            facultyId: user.id, facultyName: user.name,
+            subjectName: s.subjectName, date: date, status: s.status, reason: s.reason,
+            className: s.className, semester: s.semester, academicYear: s.academicYear,
+            avatar: `https://ui-avatars.com/api/?name=${user.name.replace(/ /g,'+')}&background=4F46E5&color=fff`
+          });
+       });
     }
 
     setSuccessMsg("Attendance saved successfully!");

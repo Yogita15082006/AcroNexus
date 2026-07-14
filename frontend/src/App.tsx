@@ -17,6 +17,9 @@ import { StudentsModule } from './pages/StudentsModule';
 import { FacultyActivityModule } from './pages/FacultyActivityModule';
 import { FacultyRequestsModule } from './pages/FacultyRequestsModule';
 import { CoordinatorsModule } from './pages/CoordinatorsModule';
+import { ClassesModule } from './pages/ClassesModule';
+import { FacultyManagementModule } from './pages/FacultyManagementModule';
+import { AcademicResourcesModule } from './pages/AcademicResourcesModule';
 import { Toaster } from 'sonner';
 
 const ProtectedRoute = ({ children, allowedRoles }) => {
@@ -36,7 +39,7 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
   return children;
 };
 
-function AppRoutes() {
+export function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<Navigate to="/login" replace />} />
@@ -45,7 +48,9 @@ function AppRoutes() {
       {/* Admin Routes */}
       <Route path="/admin" element={<ProtectedRoute allowedRoles={['hod', 'coordinator', 'faculty']}><Layout /></ProtectedRoute>}>
         <Route index element={<AdminDashboard />} />
+        <Route path="classes" element={<ClassesModule />} />
         <Route path="students" element={<StudentsModule />} />
+        <Route path="faculty-management" element={<FacultyManagementModule />} />
         <Route path="attendance" element={<AttendanceModule />} />
         <Route path="assignments" element={<AssignmentModule />} />
         <Route path="quiz" element={<QuizModule />} />
@@ -56,18 +61,21 @@ function AppRoutes() {
         <Route path="faculty-activity" element={<FacultyActivityModule />} />
         <Route path="faculty-requests" element={<FacultyRequestsModule />} />
         <Route path="coordinators" element={<CoordinatorsModule />} />
+        <Route path="academic-resources" element={<AcademicResourcesModule />} />
         <Route path="reports" element={<GenericModule title="Reports" type="reports" />} />
       </Route>
 
       {/* Student Routes */}
       <Route path="/student" element={<ProtectedRoute allowedRoles={['student']}><Layout /></ProtectedRoute>}>
         <Route index element={<StudentDashboard />} />
+        <Route path="classes" element={<ClassesModule />} />
         <Route path="attendance" element={<AttendanceModule />} />
         <Route path="assignments" element={<AssignmentModule />} />
         <Route path="quiz" element={<QuizModule />} />
         <Route path="examinations" element={<ExaminationModule />} />
         <Route path="events" element={<EventsModule />} />
         <Route path="notice" element={<NoticeModule />} />
+        <Route path="academic-resources" element={<AcademicResourcesModule />} />
         <Route path="profile" element={<ProfileModule />} />
       </Route>
     </Routes>

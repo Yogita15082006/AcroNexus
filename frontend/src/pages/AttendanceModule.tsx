@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
@@ -10,7 +10,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import {
   CheckCircle, Calendar, TrendingUp, AlertTriangle,
   Clock, BookOpen, UserCheck, Calculator, Search, Filter, Lock,
-  X, Plus, Edit, Trash2, Users, QrCode, Copy, ArrowLeft, BarChart3, Activity, PieChart, Info, Printer, FileText, FileSpreadsheet
+  X, Plus, Edit, Trash2, Users, QrCode, Copy, ArrowLeft, BarChart3, Activity, PieChart, Info, Printer, Sparkles,
+  GraduationCap, FileX
 } from 'lucide-react';
 
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, BarChart, Bar } from 'recharts';
@@ -18,6 +19,8 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { MarkAttendanceModal } from './FacultyActivityModule';
+import { mockActivityRecords, subjectAssignments } from '../data/facultyActivityData';
+import { mockData } from '../data/mockData';
 
 // Define schema
 const attendanceSessionSchema = z.object({
@@ -42,55 +45,6 @@ type AttendanceSessionValues = z.infer<typeof attendanceSessionSchema>;
 
 
 
-const mockAdminHistoryTable = [
-  // May 2026 Records
-  { date: '2026-05-02', subject: 'Java Programming', academicYear: '3rd Year', semester: 'Semester 5', class: 'IT-1', scheduledTime: '10:00 AM - 11:00 AM', status: 'Taken', attendancePct: 88 },
-  { date: '2026-05-03', subject: 'Operating Systems', academicYear: '2nd Year', semester: 'Semester 3', class: 'DS-1', scheduledTime: '11:00 AM - 12:00 PM', status: 'Taken', attendancePct: 91 },
-  { date: '2026-05-05', subject: 'DBMS', academicYear: '3rd Year', semester: 'Semester 5', class: 'IT-2', scheduledTime: '09:00 AM - 10:00 AM', status: 'Taken', attendancePct: 84 },
-  { date: '2026-05-08', subject: 'Computer Networks', academicYear: '4th Year', semester: 'Semester 7', class: 'DS-2', scheduledTime: '01:00 PM - 02:00 PM', status: 'Taken', attendancePct: 79 },
-  { date: '2026-05-12', subject: 'Java Programming', academicYear: '3rd Year', semester: 'Semester 5', class: 'IT-2', scheduledTime: '10:00 AM - 11:00 AM', status: 'Missed', attendancePct: 0 },
-  { date: '2026-05-15', subject: 'Operating Systems', academicYear: '2nd Year', semester: 'Semester 3', class: 'DS-2', scheduledTime: '02:00 PM - 03:00 PM', status: 'Taken', attendancePct: 93 },
-  { date: '2026-05-18', subject: 'DBMS', academicYear: '3rd Year', semester: 'Semester 5', class: 'IT-1', scheduledTime: '09:00 AM - 10:00 AM', status: 'Taken', attendancePct: 85 },
-  { date: '2026-05-22', subject: 'Computer Networks', academicYear: '4th Year', semester: 'Semester 7', class: 'IT-1', scheduledTime: '11:00 AM - 12:00 PM', status: 'Taken', attendancePct: 76 },
-  { date: '2026-05-25', subject: 'Data Structures', academicYear: '2nd Year', semester: 'Semester 4', class: 'DS-1', scheduledTime: '10:00 AM - 11:00 AM', status: 'Taken', attendancePct: 95 },
-  { date: '2026-05-28', subject: 'Software Engineering', academicYear: '4th Year', semester: 'Semester 8', class: 'IT-2', scheduledTime: '11:00 AM - 12:00 PM', status: 'Taken', attendancePct: 90 },
-
-  // June 2026 Records
-  { date: '2026-06-01', subject: 'Java Programming', academicYear: '3rd Year', semester: 'Semester 5', class: 'IT-1', scheduledTime: '10:00 AM - 11:00 AM', status: 'Taken', attendancePct: 87 },
-  { date: '2026-06-03', subject: 'Operating Systems', academicYear: '2nd Year', semester: 'Semester 3', class: 'DS-1', scheduledTime: '11:00 AM - 12:00 PM', status: 'Taken', attendancePct: 92 },
-  { date: '2026-06-05', subject: 'DBMS', academicYear: '3rd Year', semester: 'Semester 5', class: 'IT-2', scheduledTime: '09:00 AM - 10:00 AM', status: 'Taken', attendancePct: 86 },
-  { date: '2026-06-08', subject: 'Computer Networks', academicYear: '4th Year', semester: 'Semester 7', class: 'DS-2', scheduledTime: '01:00 PM - 02:00 PM', status: 'Taken', attendancePct: 80 },
-  { date: '2026-06-12', subject: 'Java Programming', academicYear: '3rd Year', semester: 'Semester 5', class: 'IT-2', scheduledTime: '10:00 AM - 11:00 AM', status: 'Taken', attendancePct: 89 },
-  { date: '2026-06-15', subject: 'Operating Systems', academicYear: '2nd Year', semester: 'Semester 3', class: 'DS-2', scheduledTime: '02:00 PM - 03:00 PM', status: 'Missed', attendancePct: 0 },
-  { date: '2026-06-18', subject: 'DBMS', academicYear: '3rd Year', semester: 'Semester 5', class: 'IT-1', scheduledTime: '09:00 AM - 10:00 AM', status: 'Taken', attendancePct: 83 },
-  { date: '2026-06-22', subject: 'Computer Networks', academicYear: '4th Year', semester: 'Semester 7', class: 'IT-1', scheduledTime: '11:00 AM - 12:00 PM', status: 'Taken', attendancePct: 78 },
-  { date: '2026-06-25', subject: 'Java Programming', academicYear: '3rd Year', semester: 'Semester 5', class: 'IT-1', scheduledTime: '10:00 AM - 11:00 AM', status: 'Taken', attendancePct: 90 },
-  { date: '2026-06-26', subject: 'Operating Systems', academicYear: '2nd Year', semester: 'Semester 3', class: 'DS-1', scheduledTime: '11:00 AM - 12:00 PM', status: 'Taken', attendancePct: 94 },
-  { date: '2026-06-28', subject: 'DBMS', academicYear: '3rd Year', semester: 'Semester 5', class: 'IT-2', scheduledTime: '09:00 AM - 10:00 AM', status: 'Taken', attendancePct: 88 },
-  { date: '2026-06-30', subject: 'Computer Networks', academicYear: '4th Year', semester: 'Semester 7', class: 'DS-2', scheduledTime: '01:00 PM - 02:00 PM', status: 'Taken', attendancePct: 82 },
-
-  // July 2026 Records
-  { date: '2026-07-01', subject: 'Java Programming', academicYear: '3rd Year', semester: 'Semester 5', class: 'IT-1', scheduledTime: '10:00 AM - 11:00 AM', status: 'Taken', attendancePct: 85 },
-  { date: '2026-07-02', subject: 'Operating Systems', academicYear: '2nd Year', semester: 'Semester 3', class: 'DS-2', scheduledTime: '02:00 PM - 03:00 PM', status: 'Taken', attendancePct: 92 },
-  { date: '2026-07-03', subject: 'DBMS', academicYear: '3rd Year', semester: 'Semester 5', class: 'IT-2', scheduledTime: '09:00 AM - 10:00 AM', status: 'Missed', attendancePct: 0 },
-  { date: '2026-07-04', subject: 'Computer Networks', academicYear: '4th Year', semester: 'Semester 7', class: 'IT-1', scheduledTime: '11:00 AM - 12:00 PM', status: 'Taken', attendancePct: 78 },
-  { date: '2026-07-05', subject: 'Java Programming', academicYear: '3rd Year', semester: 'Semester 5', class: 'IT-2', scheduledTime: '10:00 AM - 11:00 AM', status: 'Taken', attendancePct: 88 },
-  { date: '2026-07-06', subject: 'DBMS', academicYear: '3rd Year', semester: 'Semester 5', class: 'IT-1', scheduledTime: '09:00 AM - 10:00 AM', status: 'Taken', attendancePct: 81 },
-  { date: '2026-07-07', subject: 'Operating Systems', academicYear: '2nd Year', semester: 'Semester 3', class: 'DS-1', scheduledTime: '11:00 AM - 12:00 PM', status: 'Taken', attendancePct: 95 },
-  { date: '2026-07-08', subject: 'Computer Networks', academicYear: '4th Year', semester: 'Semester 7', class: 'DS-2', scheduledTime: '01:00 PM - 02:00 PM', status: 'Taken', attendancePct: 83 },
-  { date: '2026-07-09', subject: 'Java Programming', academicYear: '3rd Year', semester: 'Semester 5', class: 'IT-1', scheduledTime: '10:00 AM - 11:00 AM', status: 'Taken', attendancePct: 91 },
-  { date: '2026-07-10', subject: 'Operating Systems', academicYear: '2nd Year', semester: 'Semester 3', class: 'DS-1', scheduledTime: '11:00 AM - 12:00 PM', status: 'Taken', attendancePct: 96 }
-];
-
-const mockMonthlyData = [
-  { month: 'Jan', attendance: 82 },
-  { month: 'Feb', attendance: 86 },
-  { month: 'Mar', attendance: 90 },
-  { month: 'Apr', attendance: 85 },
-  { month: 'May', attendance: 88 },
-  { month: 'Jun', attendance: 85.5 },
-];
-
 const mockAdminSessions = [
   { id: '1', subject: 'Java Programming', faculty: 'Dr. Rahul Sharma', academicYear: '2025-26', department: 'Information Technology', class: 'IT-1', type: 'Lecture', lectureNumber: 'L-45', date: '2026-07-02', time: '10:00 AM - 11:00 AM', startTime: '10:00 AM', endTime: '11:00 AM', duration: '60 Mins', code: 'JAVA24IT', verificationQuestion: 'What is the output of 2+2 in Java?', expectedAnswer: '4', createdAt: '09:55 AM', status: 'Active', presentCount: 45, absentCount: 15, yetToSubmit: 5, totalStudents: 65, trend: [10, 25, 45, 60, 45, 20] },
   { id: '2', subject: 'DBMS', faculty: 'Prof. Neha Patel', academicYear: '2025-26', department: 'Information Technology', class: 'IT-2', type: 'Lab', lectureNumber: 'P-12', date: '2026-07-01', time: '02:00 PM - 04:00 PM', startTime: '02:00 PM', endTime: '04:00 PM', duration: '120 Mins', code: 'DBMSIT2', verificationQuestion: 'Primary key ensures what?', expectedAnswer: 'Uniqueness', createdAt: '01:50 PM', status: 'Closed', presentCount: 58, absentCount: 2, yetToSubmit: 0, totalStudents: 60, trend: [5, 15, 30, 40, 58, 55] },
@@ -114,12 +68,24 @@ const mockSubjectAttendance = [
   { id: 'S6', name: 'Software Engineering', faculty: 'Dr. Anjali Gupta', attended: 21, total: 22 },
 ];
 
-const mockHistory = [
-  { date: '2026-07-02', subject: 'Java Programming', faculty: 'Dr. Rahul Sharma', type: 'Lecture', status: 'Present', method: 'App Code', time: '10:05 AM' },
-  { date: '2026-07-01', subject: 'Operating Systems', faculty: 'Prof. Amit Singh', type: 'Lecture', status: 'Absent', method: '-', time: '-' },
-  { date: '2026-07-01', subject: 'Data Structures', faculty: 'Prof. Vikram Rathore', type: 'Lab', status: 'Present', method: 'App Code', time: '11:32 AM' },
-  { date: '2026-06-30', subject: 'DBMS', faculty: 'Prof. Neha Patel', type: 'Lecture', status: 'Present', method: 'App Code', time: '09:15 AM' },
-  { date: '2026-06-30', subject: 'Computer Networks', faculty: 'Prof. Sanjay Kumar', type: 'Lecture', status: 'Present', method: 'App Code', time: '12:05 PM' },
+
+
+const mockCoordinatorStudents = [
+  { id: 'ST001', name: 'Arjun Kumar', enrollment: '0101IT221001', photo: 'https://i.pravatar.cc/150?u=11', attendance: 88, status: 'Safe', trend: 'up', section: 'IT-2', semester: 5 },
+  { id: 'ST002', name: 'Priya Sharma', enrollment: '0101IT221002', photo: 'https://i.pravatar.cc/150?u=12', attendance: 72, status: 'Warning', trend: 'down', section: 'IT-2', semester: 5 },
+  { id: 'ST003', name: 'Rohan Gupta', enrollment: '0101IT221003', photo: 'https://i.pravatar.cc/150?u=13', attendance: 65, status: 'Critical', trend: 'down', section: 'IT-2', semester: 5 },
+  { id: 'ST004', name: 'Sneha Patel', enrollment: '0101IT221004', photo: 'https://i.pravatar.cc/150?u=14', attendance: 95, status: 'Safe', trend: 'up', section: 'IT-1', semester: 5 },
+  { id: 'ST005', name: 'Aman Singh', enrollment: '0101IT221005', photo: 'https://i.pravatar.cc/150?u=15', attendance: 78, status: 'Warning', trend: 'up', section: 'IT-2', semester: 5 },
+  { id: 'ST006', name: 'Neha Verma', enrollment: '0101IT221006', photo: 'https://i.pravatar.cc/150?u=16', attendance: 82, status: 'Safe', trend: 'up', section: 'IT-2', semester: 5 },
+  { id: 'ST007', name: 'Vikram Rathore', enrollment: '0101IT221007', photo: 'https://i.pravatar.cc/150?u=17', attendance: 55, status: 'Critical', trend: 'down', section: 'DS-1', semester: 5 },
+];
+
+const mockStudentAbsenceHistory = [
+  { date: '2026-07-10', day: 'Friday', subject: 'Operating Systems', time: '10:00 AM - 11:00 AM', type: 'Lecture', faculty: 'Prof. Amit Singh', absenceType: 'Lecture-wise', status: 'Absent' },
+  { date: '2026-07-08', day: 'Wednesday', subject: 'All', time: 'All Day', type: 'All', faculty: 'Multiple', absenceType: 'Full Day', status: 'Absent' },
+  { date: '2026-07-03', day: 'Friday', subject: 'DBMS', time: '01:00 PM - 02:00 PM', type: 'Lecture', faculty: 'Prof. Neha Patel', absenceType: 'Lecture-wise', status: 'Absent' },
+  { date: '2026-06-25', day: 'Thursday', subject: 'Computer Networks', time: '11:00 AM - 12:00 PM', type: 'Lecture', faculty: 'Prof. Sanjay Kumar', absenceType: 'Lecture-wise', status: 'Absent' },
+  { date: '2026-06-15', day: 'Monday', subject: 'All', time: 'All Day', type: 'All', faculty: 'Multiple', absenceType: 'Full Day', status: 'Absent' },
 ];
 
 const getStatusBadge = (percentage: number) => {
@@ -172,7 +138,7 @@ const SubjectAttendanceDetails = ({ subject, onBack }: { subject: any, onBack: (
           </Button>
           <div>
             <h2 className="text-xl font-bold tracking-tight">{subject.name}</h2>
-            <p className="text-sm font-medium text-muted-foreground">{subject.faculty} • 3rd Year • IT-1</p>
+            <p className="text-sm font-medium text-muted-foreground">{subject.faculty} â€¢ 3rd Year â€¢ IT-1</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -360,7 +326,7 @@ const AdminSessionDetails = ({ session, onBack }: { session: any, onBack: () => 
           </Button>
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-foreground">{session.subject}</h1>
-            <p className="text-muted-foreground">{session.class} • {session.date} • {session.type}</p>
+            <p className="text-muted-foreground">{session.class} â€¢ {session.date} â€¢ {session.type}</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -605,437 +571,379 @@ const AdminSessionDetails = ({ session, onBack }: { session: any, onBack: () => 
   );
 };
 
-const MultiSelectDropdown = ({ label, options, selected, onChange }: { label: string, options: string[], selected: string[], onChange: (val: string[]) => void }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const triggerRef = useRef<HTMLDivElement>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
+export const AdminTeachingHistory = ({ readOnlyFacultyId }: { readOnlyFacultyId?: string } = {}) => {
+  const { user } = useAuth();
+  const [searchQuery, setSearchQuery] = useState("");
 
-  const handleOpen = () => {
-    if (!isOpen && triggerRef.current) {
-      const rect = triggerRef.current.getBoundingClientRect();
-      setDropdownStyle({
-        position: 'fixed',
-        top: rect.bottom + 4,
-        left: rect.left,
-        width: Math.max(rect.width, 180),
-        zIndex: 9999,
-      });
+  // Resolve the current faculty from auth context or readOnlyFacultyId
+  const currentFaculty = useMemo(() => {
+    if (readOnlyFacultyId) {
+      return mockData.admins.find(a => a.id === readOnlyFacultyId) || null;
     }
-    setIsOpen(!isOpen);
-  };
+    if (!user) return null;
+    return mockData.admins.find(a => a.id === user.id) || null;
+  }, [user, readOnlyFacultyId]);
 
-  // Close on outside click
-  useEffect(() => {
-    if (!isOpen) return;
-    const handler = (e: MouseEvent) => {
-      const target = e.target as Node;
-      if (
-        triggerRef.current && !triggerRef.current.contains(target) &&
-        dropdownRef.current && !dropdownRef.current.contains(target)
-      ) {
-        setIsOpen(false);
-      }
+  const facultyId = currentFaculty?.id || '';
+  const facultyName = currentFaculty?.name || 'Faculty';
+  const facultyEmpId = currentFaculty?.empId || '';
+  const facultyDept = 'Information Technology';
+
+  // Assigned subjects & classes from subjectAssignments
+  const myAssignments = useMemo(() => {
+    return subjectAssignments.filter(a => a.facultyId === facultyId);
+  }, [facultyId]);
+
+  const assignedClasses = useMemo(() => Array.from(new Set(myAssignments.map(a => a.className))), [myAssignments]);
+
+  // Compute summary stats
+  const stats = useMemo(() => {
+    const facultyOwnRecords = mockActivityRecords.filter(r => r.facultyId === facultyId);
+    const holidays = mockActivityRecords.filter(r => r.status === 'Holiday' && assignedClasses.some(c => r.className === c));
+    const uniqueHolidayDates = new Set(holidays.map(r => r.date));
+
+    const totalScheduled = facultyOwnRecords.length;
+    const conducted = facultyOwnRecords.filter(r => r.status === 'Present').length;
+    const missed = facultyOwnRecords.filter(r => r.status === 'Class Missed').length;
+    const absent = facultyOwnRecords.filter(r => r.status === 'Absent').length;
+    const cancelled = Math.max(0, totalScheduled - conducted - missed - absent);
+
+    // Summary Cards stats (day-level aggregation)
+    const allFacultyDates = new Set(facultyOwnRecords.map(r => r.date));
+    const totalWorkingDays = allFacultyDates.size;
+    const absentDates = new Set(facultyOwnRecords.filter(r => r.status === 'Absent' || r.status === 'Class Missed').map(r => r.date));
+    const presentDates = new Set([...allFacultyDates].filter(d => !absentDates.has(d)));
+    const daysPresent = presentDates.size;
+    const daysAbsent = absentDates.size;
+    const overallAttendance = totalWorkingDays > 0 ? Math.round((daysPresent / totalWorkingDays) * 100) : 0;
+
+    return {
+      totalScheduled, conducted, missed, absent, cancelled,
+      holidays: uniqueHolidayDates.size,
+      totalWorkingDays, daysPresent, daysAbsent, overallAttendance,
     };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [isOpen]);
+  }, [facultyId, assignedClasses]);
 
-  return (
-    <div className="relative" ref={triggerRef}>
-      <div 
-        className="flex items-center justify-between px-3 py-2 border border-border/50 rounded-md bg-background text-sm cursor-pointer min-w-[140px] hover:border-primary/50 transition-colors"
-        onClick={handleOpen}
-      >
-        <span className="truncate mr-2 font-medium">{selected.length > 0 ? `${selected.length} selected` : label}</span>
-        <span className={`text-muted-foreground text-[10px] transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}>▼</span>
-      </div>
-      {isOpen && typeof document !== 'undefined' && createPortal(
-        <div
-          ref={dropdownRef}
-          style={dropdownStyle}
-          className="bg-card border border-border/50 shadow-2xl rounded-md p-2 flex flex-col gap-1 max-h-[220px] overflow-y-auto"
-        >
-          {options.map(opt => (
-            <label key={opt} className="flex items-center gap-2 px-2 py-1.5 hover:bg-muted/50 rounded cursor-pointer text-sm transition-colors">
-              <input 
-                type="checkbox" 
-                checked={selected.includes(opt)}
-                onChange={(e) => {
-                  if (e.target.checked) onChange([...selected, opt]);
-                  else onChange(selected.filter(x => x !== opt));
-                }}
-                className="rounded border-gray-300 text-primary focus:ring-primary w-4 h-4 cursor-pointer"
-              />
-              {opt}
-            </label>
-          ))}
-        </div>,
-        document.body
-      )}
-    </div>
-  )
-}
-
-const AdminTeachingHistory = () => {
-  const [academicYears, setAcademicYears] = useState<string[]>([]);
-  const [semesters, setSemesters] = useState<string[]>([]);
-  const [classes, setClasses] = useState<string[]>([]);
-  const [subjects, setSubjects] = useState<string[]>([]);
-  const [fromDate, setFromDate] = useState<string>('');
-  const [toDate, setToDate] = useState<string>('');
-
-  const [filteredData, setFilteredData] = useState(mockAdminHistoryTable);
-
-  const generateDynamicMockData = (
-    count: number,
-    years: string[],
-    sems: string[],
-    clsList: string[],
-    subList: string[],
-    from: string,
-    to: string
-  ) => {
-    const yearsToUse = years.length > 0 ? years : ['2nd Year', '3rd Year', '4th Year'];
-    const semsToUse = sems.length > 0 ? sems : ['Semester 3', 'Semester 4', 'Semester 5', 'Semester 6', 'Semester 7', 'Semester 8'];
-    const classesToUse = clsList.length > 0 ? clsList : ['IT-1', 'IT-2', 'DS-1', 'DS-2'];
-    const subjectsToUse = subList.length > 0 ? subList : ['Java Programming', 'Operating Systems', 'DBMS', 'Computer Networks'];
-    
-    const start = from ? new Date(from) : new Date('2026-05-01');
-    const end = to ? new Date(to) : new Date('2026-07-10');
-    
-    const timeSlots = [
-      '09:00 AM - 10:00 AM',
-      '10:00 AM - 11:00 AM',
-      '11:00 AM - 12:00 PM',
-      '01:00 PM - 02:00 PM',
-      '02:00 PM - 03:00 PM',
-      '03:00 PM - 04:00 PM'
-    ];
-
-    const records: typeof mockAdminHistoryTable = [];
-    const timeDiff = end.getTime() - start.getTime();
-    
-    for (let i = 0; i < count; i++) {
-      const randomTime = start.getTime() + Math.random() * (timeDiff || 86400000 * 30);
-      const randomDate = new Date(randomTime);
-      const day = randomDate.getDay();
-      if (day === 0) randomDate.setDate(randomDate.getDate() + 1);
-      else if (day === 6) randomDate.setDate(randomDate.getDate() - 1);
+  const teachingSummaryData = useMemo(() => {
+    return myAssignments.map(asgn => {
+      const records = mockActivityRecords.filter(r => 
+        r.facultyId === facultyId &&
+        r.subjectName === asgn.subjectName &&
+        r.className === asgn.className
+      );
+      const scheduled = records.filter(r => r.status !== 'Holiday').length;
+      const conducted = records.filter(r => r.status === 'Present').length;
+      const missed = records.filter(r => r.status === 'Class Missed' || r.status === 'Absent').length;
+      const cancelled = Math.max(0, scheduled - conducted - missed);
       
-      const dateStr = randomDate.toISOString().split('T')[0];
-      const subject = subjectsToUse[Math.floor(Math.random() * subjectsToUse.length)];
-      const academicYear = yearsToUse[Math.floor(Math.random() * yearsToUse.length)];
-      const semester = semsToUse[Math.floor(Math.random() * semsToUse.length)];
-      const cls = classesToUse[Math.floor(Math.random() * classesToUse.length)];
-      const timeSlot = timeSlots[Math.floor(Math.random() * timeSlots.length)];
-      
-      const status = Math.random() > 0.08 ? 'Taken' : 'Missed';
-      const attendancePct = status === 'Taken' ? Math.floor(Math.random() * 20) + 80 : 0;
-      
-      records.push({
-        date: dateStr,
-        subject,
-        academicYear,
-        semester,
-        class: cls,
-        scheduledTime: timeSlot,
-        status,
-        attendancePct
+      const branch = asgn.className.split('-')[0] || asgn.className;
+      let batch = '2024-2028';
+      if (asgn.academicYear === '2nd Year') batch = '2024-2028';
+      else if (asgn.academicYear === '3rd Year') batch = '2023-2027';
+      else if (asgn.academicYear === '4th Year') batch = '2022-2026';
+
+      return {
+        id: `${asgn.subjectName}-${asgn.className}`,
+        subject: asgn.subjectName,
+        branch,
+        className: asgn.className,
+        semester: asgn.semester,
+        batch,
+        scheduled,
+        conducted,
+        missed,
+        cancelled
+      };
+    });
+  }, [facultyId, myAssignments]);
+
+
+  // Build absence history entries from records
+  const absenceHistory = useMemo(() => {
+    // Get all non-Present records for this faculty + holidays on their classes
+    const facultyNonPresent = mockActivityRecords.filter(r => r.facultyId === facultyId && r.status !== 'Present');
+    const holidays = mockActivityRecords.filter(r => r.status === 'Holiday' && assignedClasses.some(c => r.className === c));
+
+    // Group by date to detect full-day absences
+    const dateMap = new Map<string, typeof facultyNonPresent>();
+    facultyNonPresent.forEach(r => {
+      if (!dateMap.has(r.date)) dateMap.set(r.date, []);
+      dateMap.get(r.date)!.push(r);
+    });
+
+    // Also group holidays by date
+    const holidayDateMap = new Map<string, typeof holidays>();
+    holidays.forEach(r => {
+      if (!holidayDateMap.has(r.date)) holidayDateMap.set(r.date, []);
+      holidayDateMap.get(r.date)!.push(r);
+    });
+
+    const lectureTimes = ['09:00 AM - 10:00 AM', '10:00 AM - 11:00 AM', '11:00 AM - 12:00 PM', '01:00 PM - 02:00 PM', '02:00 PM - 03:00 PM', '03:00 PM - 04:00 PM'];
+    let idx = 0;
+
+    const entries: {
+      id: string; date: string; day: string; subject: string; className: string;
+      semester: string; batch: string; time: string; absenceType: string; reason: string;
+    }[] = [];
+
+    // Faculty absence/missed records
+    dateMap.forEach((records, date) => {
+      const d = new Date(date + 'T00:00:00');
+      const day = d.toLocaleDateString('en-US', { weekday: 'long' });
+
+      // Check if all assignments on this date were missed/absent
+      const totalAssignmentsOnDate = mockActivityRecords.filter(r => r.facultyId === facultyId && r.date === date).length;
+      const isFullDay = records.length >= totalAssignmentsOnDate && totalAssignmentsOnDate > 1;
+
+      if (isFullDay) {
+        entries.push({
+          id: `abs-${date}-full`, date, day,
+          subject: 'All Subjects', className: records.map(r => r.className).join(', '),
+          semester: records.map(r => r.semester).filter((v, i, a) => a.indexOf(v) === i).join(', '),
+          batch: records.map(r => r.academicYear).filter((v, i, a) => a.indexOf(v) === i).join(', '),
+          time: 'Full Day',
+          absenceType: 'Full Day Absent',
+          reason: records[0].reason || 'Not specified',
+        });
+      } else {
+        records.forEach(r => {
+          const typeMap: Record<string, string> = { 'Absent': 'Lecture Missed', 'Class Missed': 'Lecture Missed' };
+          entries.push({
+            id: r.id, date: r.date, day,
+            subject: r.subjectName, className: r.className,
+            semester: r.semester, batch: r.academicYear,
+            time: lectureTimes[idx++ % lectureTimes.length],
+            absenceType: typeMap[r.status] || r.status,
+            reason: r.reason || 'Not specified',
+          });
+        });
+      }
+    });
+
+    // Holiday records
+    holidayDateMap.forEach((records, date) => {
+      const d = new Date(date + 'T00:00:00');
+      const day = d.toLocaleDateString('en-US', { weekday: 'long' });
+      const uniqueClasses = [...new Set(records.map(r => r.className))];
+      entries.push({
+        id: `hol-${date}`, date, day,
+        subject: '-', className: uniqueClasses.join(', '),
+        semester: '-', batch: '-', time: 'Full Day',
+        absenceType: 'Holiday',
+        reason: records[0].reason || 'College Holiday',
       });
-    }
-    
-    return records;
+    });
+
+    // Sort descending by date
+    entries.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    return entries;
+  }, [facultyId, assignedClasses]);
+
+  // Filter by search
+  const filteredHistory = useMemo(() => {
+    if (!searchQuery.trim()) return absenceHistory;
+    const q = searchQuery.toLowerCase();
+    return absenceHistory.filter(e =>
+      e.subject.toLowerCase().includes(q) || e.className.toLowerCase().includes(q) ||
+      e.absenceType.toLowerCase().includes(q) || e.reason.toLowerCase().includes(q) ||
+      e.date.includes(q) || e.day.toLowerCase().includes(q)
+    );
+  }, [absenceHistory, searchQuery]);
+
+  const getAbsenceTypeBadge = (type: string) => {
+    const map: Record<string, { variant: string; color: string }> = {
+      'Lecture Missed': { variant: 'rejected', color: 'text-rose-600 dark:text-rose-400 bg-rose-500/10 border-rose-500/20' },
+      'Full Day Absent': { variant: 'rejected', color: 'text-red-700 dark:text-red-400 bg-red-500/15 border-red-500/25' },
+      'Holiday': { variant: 'outline', color: 'text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/20' },
+      'Cancelled Class': { variant: 'outline', color: 'text-slate-600 dark:text-slate-400 bg-slate-500/10 border-slate-500/20' },
+      'Official Duty': { variant: 'outline', color: 'text-blue-600 dark:text-blue-400 bg-blue-500/10 border-blue-500/20' },
+      'Medical Leave': { variant: 'outline', color: 'text-purple-600 dark:text-purple-400 bg-purple-500/10 border-purple-500/20' },
+    };
+    const style = map[type] || map['Lecture Missed'];
+    return <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${style.color}`}>{type}</span>;
   };
-
-  const handleApplyFilters = () => {
-    let result = [...mockAdminHistoryTable];
-    if (academicYears.length > 0) {
-      result = result.filter(item => academicYears.includes(item.academicYear));
-    }
-    if (semesters.length > 0) {
-      result = result.filter(item => semesters.includes(item.semester));
-    }
-    if (classes.length > 0) {
-      result = result.filter(item => classes.includes(item.class));
-    }
-    if (subjects.length > 0) {
-      result = result.filter(item => subjects.includes(item.subject));
-    }
-    if (fromDate) {
-      result = result.filter(item => new Date(item.date) >= new Date(fromDate));
-    }
-    if (toDate) {
-      result = result.filter(item => new Date(item.date) <= new Date(toDate));
-    }
-
-    const hasFilters = academicYears.length > 0 || semesters.length > 0 || classes.length > 0 || subjects.length > 0 || fromDate || toDate;
-
-    if (hasFilters && result.length < 15) {
-      const needed = 15 - result.length;
-      const generated = generateDynamicMockData(needed, academicYears, semesters, classes, subjects, fromDate, toDate);
-      result = [...result, ...generated].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    }
-
-    setFilteredData(result);
-  };
-
-  const handleResetFilters = () => {
-    setAcademicYears([]);
-    setSemesters([]);
-    setClasses([]);
-    setSubjects([]);
-    setFromDate('');
-    setToDate('');
-    setFilteredData(mockAdminHistoryTable);
-  };
-
-  const scheduled = filteredData.length;
-  const taken = filteredData.filter(d => d.status === 'Taken').length;
-  const missed = filteredData.filter(d => d.status === 'Missed').length;
-  
-  const totalTakenPct = filteredData.filter(d => d.status === 'Taken').reduce((acc, curr) => acc + (curr.attendancePct || 0), 0);
-  const avgAttendance = taken > 0 ? (totalTakenPct / taken).toFixed(1) : '0.0';
-  const teachingHours = taken; // Assuming 1 hour per class
-
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  const monthlyStats = months.map(m => ({ month: m, totalPct: 0, count: 0 }));
-  
-  filteredData.forEach(row => {
-    if (row.status === 'Taken') {
-       const dateObj = new Date(row.date);
-       const m = dateObj.getMonth();
-       if (!isNaN(m)) {
-          monthlyStats[m].totalPct += (row.attendancePct || 0);
-          monthlyStats[m].count += 1;
-       }
-    }
-  });
-
-  const chartData = monthlyStats
-     .filter(m => m.count > 0)
-     .map(m => ({ month: m.month, attendance: Number((m.totalPct / m.count).toFixed(1)) }));
-
-  const displayChartData = chartData.length > 0 ? chartData : mockMonthlyData;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -10 }}
-      transition={{ duration: 0.3 }}
-      className="space-y-6"
-    >
-      {/* Filters Section */}
-      <Card className="border-border/50 shadow-sm bg-card overflow-visible">
-        <CardHeader className="pb-3 border-b border-border/50 bg-muted/10">
-          <CardTitle className="text-base font-semibold flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <Filter className="w-4 h-4 text-primary" />
-              Advanced Filters
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Button variant="outline" size="sm" className="h-8 gap-2 bg-background" onClick={handleResetFilters}>Reset</Button>
-              <Button size="sm" className="h-8 gap-2 bg-primary text-primary-foreground hover:bg-primary/90" onClick={handleApplyFilters}>Apply Filters</Button>
-            </div>
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
+
+      {/* ═══════════════════════════════════════════════════════ */}
+      {/* SECTION 1: Summary Cards                                */}
+      {/* ═══════════════════════════════════════════════════════ */}
+      <Card className="border border-border/50 shadow-sm bg-card overflow-hidden">
+        <CardHeader className="border-b border-border/50 bg-muted/20 px-6 py-4">
+          <CardTitle className="text-lg font-bold tracking-tight flex items-center gap-2">
+            <BarChart3 className="w-5 h-5 text-primary" />
+            Summary Cards
           </CardTitle>
         </CardHeader>
-        <CardContent className="p-4 overflow-visible">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
-            <div className="space-y-1.5 lg:col-span-1">
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Academic Year</label>
-              <MultiSelectDropdown 
-                label="Select Year" 
-                options={['2nd Year', '3rd Year', '4th Year']}
-                selected={academicYears}
-                onChange={setAcademicYears}
-              />
-            </div>
-            <div className="space-y-1.5 lg:col-span-1">
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Semester</label>
-              <MultiSelectDropdown 
-                label="Select Sem" 
-                options={['Semester 3', 'Semester 4', 'Semester 5', 'Semester 6', 'Semester 7', 'Semester 8']}
-                selected={semesters}
-                onChange={setSemesters}
-              />
-            </div>
-            <div className="space-y-1.5 lg:col-span-1">
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Class</label>
-              <MultiSelectDropdown 
-                label="Select Class" 
-                options={['IT-1', 'IT-2', 'DS-1', 'DS-2']}
-                selected={classes}
-                onChange={setClasses}
-              />
-            </div>
-            <div className="space-y-1.5 lg:col-span-1">
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Subject</label>
-              <MultiSelectDropdown 
-                label="Select Subject" 
-                options={['Java Programming', 'Operating Systems', 'DBMS', 'Computer Networks']}
-                selected={subjects}
-                onChange={setSubjects}
-              />
-            </div>
-            <div className="space-y-1.5 lg:col-span-2">
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Date Range</label>
-              <div className="grid grid-cols-2 gap-2">
-                <Input type="date" className="h-[38px] text-xs bg-background" value={fromDate} onChange={e => setFromDate(e.target.value)} />
-                <Input type="date" className="h-[38px] text-xs bg-background" value={toDate} onChange={e => setToDate(e.target.value)} />
+        <CardContent className="p-6">
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+            {[
+              { label: 'Overall Attendance %', value: `${stats.overallAttendance}%`, icon: <PieChart className="w-4 h-4" />, color: 'bg-primary', textColor: stats.overallAttendance >= 75 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400', bgTint: stats.overallAttendance >= 75 ? 'bg-emerald-500/5' : 'bg-rose-500/5' },
+              { label: 'Total Working Days', value: stats.totalWorkingDays, icon: <Calendar className="w-4 h-4" />, color: 'bg-blue-500', textColor: 'text-blue-600 dark:text-blue-400', bgTint: 'bg-blue-500/5' },
+              { label: 'Days Present', value: stats.daysPresent, icon: <UserCheck className="w-4 h-4" />, color: 'bg-emerald-500', textColor: 'text-emerald-600 dark:text-emerald-400', bgTint: 'bg-emerald-500/5' },
+              { label: 'Days Absent', value: stats.daysAbsent, icon: <AlertTriangle className="w-4 h-4" />, color: 'bg-rose-500', textColor: 'text-rose-600 dark:text-rose-400', bgTint: 'bg-rose-500/5' },
+              { label: 'Total Classes', value: stats.totalScheduled, icon: <BookOpen className="w-4 h-4" />, color: 'bg-indigo-500', textColor: 'text-indigo-600 dark:text-indigo-400', bgTint: 'bg-indigo-500/5' },
+              { label: 'Classes Conducted', value: stats.conducted, icon: <CheckCircle className="w-4 h-4" />, color: 'bg-teal-500', textColor: 'text-teal-600 dark:text-teal-400', bgTint: 'bg-teal-500/5' },
+              { label: 'Missed / Cancelled', value: stats.missed + stats.cancelled, icon: <FileX className="w-4 h-4" />, color: 'bg-orange-500', textColor: 'text-orange-600 dark:text-orange-400', bgTint: 'bg-orange-500/5' },
+              { label: 'Holidays', value: stats.holidays, icon: <Sparkles className="w-4 h-4" />, color: 'bg-amber-500', textColor: 'text-amber-600 dark:text-amber-400', bgTint: 'bg-amber-500/5' },
+            ].map((item, i) => (
+              <div key={i} className={`relative overflow-hidden rounded-xl border border-border/50 bg-card ${item.bgTint} p-4 hover:shadow-md transition-all duration-200`}>
+                <div className={`absolute top-0 left-0 w-full h-1 ${item.color}`} />
+                <div className={`w-8 h-8 rounded-lg ${item.color}/10 flex items-center justify-center mb-2 ${item.textColor}`}>
+                  {item.icon}
+                </div>
+                <h3 className={`text-2xl font-extrabold tracking-tight ${item.textColor}`}>{item.value}</h3>
+                <p className="text-[9px] font-bold mt-1 text-muted-foreground uppercase tracking-wider leading-tight">{item.label}</p>
               </div>
-            </div>
+            ))}
           </div>
         </CardContent>
       </Card>
 
-      {/* Summary Dashboard */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="border-border/50 shadow-sm bg-card hover:shadow-md transition-shadow relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-full h-1 bg-indigo-500"></div>
-          <CardContent className="p-5">
-            <div className="flex justify-between items-start mb-2">
-              <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-500"><Calendar className="w-5 h-5"/></div>
+      {/* ═══════════════════════════════════════════════════════ */}
+      {/* SECTION 2: Faculty Teaching Summary Card               */}
+      {/* ═══════════════════════════════════════════════════════ */}
+      <Card className="border border-border/50 shadow-sm bg-card overflow-hidden">
+        <CardHeader className="border-b border-border/50 bg-muted/20 px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <CardTitle className="text-lg font-bold tracking-tight flex items-center gap-2">
+            <GraduationCap className="w-5 h-5 text-indigo-500" />
+            Faculty Teaching Summary Card
+          </CardTitle>
+          <div className="text-right sm:text-left flex flex-col items-start sm:items-end">
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-foreground tracking-tight">{facultyName}</span>
+              <Badge variant="active" className="text-[10px]">Active</Badge>
             </div>
-            <div>
-              <h3 className="text-3xl font-extrabold tracking-tight text-foreground">{scheduled}</h3>
-              <p className="text-xs font-bold mt-1 text-muted-foreground uppercase tracking-wider">Scheduled Classes</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-border/50 shadow-sm bg-card hover:shadow-md transition-shadow relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-full h-1 bg-emerald-500"></div>
-          <CardContent className="p-5">
-            <div className="flex justify-between items-start mb-2">
-              <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-500"><CheckCircle className="w-5 h-5"/></div>
-            </div>
-            <div>
-              <h3 className="text-3xl font-extrabold tracking-tight text-foreground">{taken} <span className="text-lg font-bold text-muted-foreground">/</span> <span className="text-rose-500">{missed}</span></h3>
-              <p className="text-xs font-bold mt-1 text-muted-foreground uppercase tracking-wider">Taken / Missed</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-border/50 shadow-sm bg-card hover:shadow-md transition-shadow relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-full h-1 bg-blue-500"></div>
-          <CardContent className="p-5">
-            <div className="flex justify-between items-start mb-2">
-              <div className="p-2 rounded-lg bg-blue-500/10 text-blue-500"><Users className="w-5 h-5"/></div>
-            </div>
-            <div>
-              <h3 className="text-3xl font-extrabold tracking-tight text-foreground">{avgAttendance}%</h3>
-              <p className="text-xs font-bold mt-1 text-muted-foreground uppercase tracking-wider">Avg. Student Attendance</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-border/50 shadow-sm bg-card hover:shadow-md transition-shadow relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-full h-1 bg-amber-500"></div>
-          <CardContent className="p-5">
-            <div className="flex justify-between items-start mb-2">
-              <div className="p-2 rounded-lg bg-amber-500/10 text-amber-500"><Clock className="w-5 h-5"/></div>
-            </div>
-            <div>
-              <h3 className="text-3xl font-extrabold tracking-tight text-foreground">{teachingHours} <span className="text-lg font-bold text-muted-foreground">hrs</span></h3>
-              <p className="text-xs font-bold mt-1 text-muted-foreground uppercase tracking-wider">Total Teaching Hours</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Analytics and Table */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Table */}
-        <div className="lg:col-span-2 space-y-6">
-          <Card className="border-border/50 shadow-sm bg-card">
-            <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between bg-muted/10 border-b border-border/50 px-5 py-4 gap-4">
-              <CardTitle className="text-base font-semibold flex items-center gap-2"><BookOpen className="w-4 h-4 text-primary"/> Class History</CardTitle>
-              <div className="flex flex-wrap items-center gap-2">
-                <Button variant="outline" size="sm" className="h-8 text-xs gap-2"><FileText className="w-3.5 h-3.5 text-rose-500"/> PDF</Button>
-                <Button variant="outline" size="sm" className="h-8 text-xs gap-2"><FileSpreadsheet className="w-3.5 h-3.5 text-emerald-500"/> CSV</Button>
-                <Button variant="outline" size="sm" className="h-8 text-xs gap-2"><Printer className="w-3.5 h-3.5 text-blue-500"/> Print</Button>
-              </div>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="overflow-x-auto max-h-[400px]">
-                <Table>
-                  <TableHeader className="bg-muted/5 sticky top-0 z-10 backdrop-blur-sm shadow-sm">
-                    <TableRow className="border-b border-border/50 hover:bg-transparent">
-                      <TableHead className="font-semibold text-xs tracking-wider uppercase text-muted-foreground">Date & Time</TableHead>
-                      <TableHead className="font-semibold text-xs tracking-wider uppercase text-muted-foreground">Subject</TableHead>
-                      <TableHead className="font-semibold text-xs tracking-wider uppercase text-muted-foreground">Batch</TableHead>
-                      <TableHead className="font-semibold text-xs tracking-wider uppercase text-muted-foreground text-right">Status</TableHead>
+            <span className="text-xs text-muted-foreground font-medium">{facultyEmpId} • {facultyDept}</span>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader className="bg-muted/5">
+                <TableRow className="border-b border-border/50 hover:bg-transparent">
+                  <TableHead className="font-semibold text-xs tracking-wider text-muted-foreground uppercase">Subject</TableHead>
+                  <TableHead className="font-semibold text-xs tracking-wider text-muted-foreground uppercase text-center">Branch</TableHead>
+                  <TableHead className="font-semibold text-xs tracking-wider text-muted-foreground uppercase text-center">Class</TableHead>
+                  <TableHead className="font-semibold text-xs tracking-wider text-muted-foreground uppercase text-center">Semester</TableHead>
+                  <TableHead className="font-semibold text-xs tracking-wider text-muted-foreground uppercase text-center">Batch</TableHead>
+                  <TableHead className="font-semibold text-xs tracking-wider text-muted-foreground uppercase text-center">Total Classes Scheduled</TableHead>
+                  <TableHead className="font-semibold text-xs tracking-wider text-muted-foreground uppercase text-center">Classes Conducted</TableHead>
+                  <TableHead className="font-semibold text-xs tracking-wider text-muted-foreground uppercase text-center">Classes Missed</TableHead>
+                  <TableHead className="font-semibold text-xs tracking-wider text-muted-foreground uppercase text-center">Classes Cancelled</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {teachingSummaryData.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={9} className="h-32 text-center text-muted-foreground">
+                      No teaching summary data available.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  teachingSummaryData.map((data) => (
+                    <TableRow key={data.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
+                      <TableCell className="font-semibold text-sm whitespace-nowrap">{data.subject}</TableCell>
+                      <TableCell className="text-center text-sm font-medium">{data.branch}</TableCell>
+                      <TableCell className="text-center">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">{data.className}</span>
+                      </TableCell>
+                      <TableCell className="text-center text-sm text-muted-foreground">{data.semester}</TableCell>
+                      <TableCell className="text-center text-sm text-muted-foreground">{data.batch}</TableCell>
+                      <TableCell className="text-center text-sm font-medium text-blue-600 dark:text-blue-400">{data.scheduled}</TableCell>
+                      <TableCell className="text-center text-sm font-bold text-emerald-600 dark:text-emerald-400">{data.conducted}</TableCell>
+                      <TableCell className="text-center text-sm font-bold text-rose-600 dark:text-rose-400">{data.missed}</TableCell>
+                      <TableCell className="text-center text-sm font-medium text-slate-600 dark:text-slate-400">{data.cancelled}</TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredData.length > 0 ? filteredData.map((row, i) => (
-                      <TableRow key={i} className="hover:bg-muted/30 border-b border-border/50 transition-colors">
-                        <TableCell className="py-3">
-                          <div className="flex flex-col">
-                            <span className="font-semibold text-sm">{row.date}</span>
-                            <span className="text-xs text-muted-foreground mt-0.5">{row.scheduledTime}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <span className="font-semibold text-sm">{row.subject}</span>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex flex-col">
-                            <span className="text-sm font-semibold">{row.class}</span>
-                            <span className="text-[11px] text-muted-foreground mt-0.5">{row.academicYear} • {row.semester}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Badge variant={row.status === 'Taken' ? 'active' : 'rejected'} className="text-[10px] px-2 py-0.5">{row.status}</Badge>
-                        </TableCell>
-                      </TableRow>
-                    )) : (
-                      <TableRow>
-                        <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
-                          No teaching history matches the applied filters.
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
 
-        {/* Analytics */}
-        <div className="space-y-6">
-          <Card className="border-border/50 shadow-sm bg-card">
-            <CardHeader className="bg-muted/10 border-b border-border/50 px-5 py-4">
-              <CardTitle className="text-base font-semibold flex items-center gap-2"><BarChart3 className="w-4 h-4 text-primary"/> Monthly Attendance %</CardTitle>
-            </CardHeader>
-            <CardContent className="p-5">
-              <div className="h-64 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={displayChartData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="colorMonthly" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" opacity={0.15} vertical={false} />
-                    <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'currentColor', opacity: 0.7 }} />
-                    <YAxis domain={[0, 100]} hide />
-                    <Tooltip 
-                      contentStyle={{ borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', backgroundColor: 'hsl(var(--card))', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                      itemStyle={{ color: 'hsl(var(--foreground))', fontWeight: 'bold' }}
-                    />
-                    <Area type="monotone" dataKey="attendance" stroke="#3b82f6" strokeWidth={3} fill="url(#colorMonthly)" />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+      {/* ═══════════════════════════════════════════════════════ */}
+      {/* SECTION 3: Faculty Absence History Card               */}
+      {/* ═══════════════════════════════════════════════════════ */}
+      <Card className="border border-border/50 shadow-sm bg-card overflow-hidden">
+        <CardHeader className="border-b border-border/50 bg-muted/20 px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <CardTitle className="text-lg font-bold tracking-tight flex items-center gap-2">
+            <FileX className="w-5 h-5 text-rose-500" />
+            Faculty Absence History Card
+            <Badge variant="outline" className="text-[10px] ml-2">{filteredHistory.length} Records</Badge>
+          </CardTitle>
+          <div className="relative w-full sm:w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Search by subject, class, type..."
+              className="w-full pl-9 pr-3 py-2 text-sm bg-background border border-border/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader className="bg-muted/5">
+                <TableRow className="border-b border-border/50 hover:bg-transparent">
+                  <TableHead className="font-semibold text-[10px] tracking-wider text-muted-foreground uppercase">Date</TableHead>
+                  <TableHead className="font-semibold text-[10px] tracking-wider text-muted-foreground uppercase">Day</TableHead>
+                  <TableHead className="font-semibold text-[10px] tracking-wider text-muted-foreground uppercase">Subject</TableHead>
+                  <TableHead className="font-semibold text-[10px] tracking-wider text-muted-foreground uppercase">Class</TableHead>
+                  <TableHead className="font-semibold text-[10px] tracking-wider text-muted-foreground uppercase">Semester</TableHead>
+                  <TableHead className="font-semibold text-[10px] tracking-wider text-muted-foreground uppercase">Batch</TableHead>
+                  <TableHead className="font-semibold text-[10px] tracking-wider text-muted-foreground uppercase">Time</TableHead>
+                  <TableHead className="font-semibold text-[10px] tracking-wider text-muted-foreground uppercase">Absence Type</TableHead>
+                  <TableHead className="font-semibold text-[10px] tracking-wider text-muted-foreground uppercase">Reason</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredHistory.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={9} className="h-32 text-center text-muted-foreground">
+                      <div className="flex flex-col items-center gap-2">
+                        <CheckCircle className="w-8 h-8 text-emerald-500/50" />
+                        <p className="font-medium">No absence records found</p>
+                        <p className="text-xs">All classes have been conducted as scheduled.</p>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredHistory.map((entry) => (
+                    <TableRow key={entry.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
+                      <TableCell className="font-semibold text-sm whitespace-nowrap">{entry.date}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground whitespace-nowrap">{entry.day}</TableCell>
+                      <TableCell className="text-sm font-medium whitespace-nowrap">{entry.subject}</TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">{entry.className}</span>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground whitespace-nowrap">{entry.semester}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground whitespace-nowrap">{entry.batch}</TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        {entry.time === 'Full Day' ? (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-orange-500/10 text-orange-600 dark:text-orange-400 border border-orange-500/20">Full Day</span>
+                        ) : (
+                          <span className="text-sm text-muted-foreground">{entry.time}</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap">{getAbsenceTypeBadge(entry.absenceType)}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate" title={entry.reason}>{entry.reason}</TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
     </motion.div>
-  )
+  );
 }
+
 
 const CreateSessionModal = ({ isOpen, onClose, onSubmit, register, handleSubmit, errors, watch, setValue, handleGenerateCode, codeValue }: any) => {
   if (!isOpen) return null;
@@ -1205,10 +1113,333 @@ const CreateSessionModal = ({ isOpen, onClose, onSubmit, register, handleSubmit,
   );
 };
 
+const StudentAttendanceDetails = ({ student, onBack }: { student: any, onBack?: () => void }) => {
+  let aiInsight = "";
+  if (student.attendance >= 80) aiInsight = `${student.name} is maintaining excellent attendance across all core subjects. The consistency indicates strong engagement. No immediate risks or required interventions detected.`;
+  else if (student.attendance >= 75) aiInsight = `${student.name}'s attendance is bordering the minimum requirement of 75%. We observed frequent absences particularly on Mondays and during early morning lab sessions.`;
+  else aiInsight = `${student.name} is critically short of attendance. Immediate intervention and counseling are required. High probability of missing the mid-term eligibility if the current trend continues.`;
+
+  const totalConducted = mockSubjectAttendance.reduce((acc, curr) => acc + curr.total, 0);
+  const totalAttended = mockSubjectAttendance.reduce((acc, curr) => {
+    const attended = Math.max(0, Math.floor(curr.total * (student.attendance / 100) + (Math.random() * 4 - 2)));
+    return acc + attended;
+  }, 0);
+  const totalMissed = totalConducted - totalAttended;
+
+  const totalWorkingDays = 45;
+  const daysPresent = Math.floor(totalWorkingDays * (student.attendance / 100));
+  const daysAbsent = totalWorkingDays - daysPresent;
+
+  return (
+    <motion.div
+      key="student-analysis-details"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      transition={{ duration: 0.3 }}
+      className="space-y-6"
+    >
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-card p-4 rounded-xl border border-border/50 shadow-sm sticky top-0 z-10 backdrop-blur-md bg-card/90 gap-4">
+        <div className="flex items-center gap-4">
+          {onBack && (
+            <Button variant="outline" size="icon" onClick={onBack} className="rounded-full shrink-0">
+              <ArrowLeft className="w-4 h-4" />
+            </Button>
+          )}
+          <div className="flex items-center gap-3">
+            <img src={student.photo} alt={student.name} className="w-12 h-12 rounded-full object-cover border-2 border-primary/20" />
+            <div>
+              <h2 className="text-xl font-bold tracking-tight">{student.name}</h2>
+              <p className="text-sm font-medium text-muted-foreground">{student.enrollment} â€¢ {student.section} (Sem {student.semester})</p>
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          {getStatusBadge(student.attendance)}
+          <Button variant="outline" size="sm" className="gap-2 bg-background">
+            <Printer size={14} /> Export Report
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4">
+        <Card className="border border-border/50 shadow-sm bg-card hover:shadow-md transition-shadow relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-1 bg-primary"></div>
+          <CardContent className="p-4">
+            <h3 className="text-2xl font-extrabold tracking-tight text-foreground">{student.attendance}%</h3>
+            <p className="text-[10px] font-bold mt-1 text-muted-foreground uppercase tracking-wider">Overall Attd.</p>
+          </CardContent>
+        </Card>
+        <Card className="border border-border/50 shadow-sm bg-card hover:shadow-md transition-shadow relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-1 bg-blue-500"></div>
+          <CardContent className="p-4">
+            <h3 className="text-2xl font-extrabold tracking-tight text-foreground">{totalWorkingDays}</h3>
+            <p className="text-[10px] font-bold mt-1 text-muted-foreground uppercase tracking-wider">Working Days</p>
+          </CardContent>
+        </Card>
+        <Card className="border border-border/50 shadow-sm bg-card hover:shadow-md transition-shadow relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-1 bg-emerald-500"></div>
+          <CardContent className="p-4">
+            <h3 className="text-2xl font-extrabold tracking-tight text-foreground">{daysPresent}</h3>
+            <p className="text-[10px] font-bold mt-1 text-muted-foreground uppercase tracking-wider">Days Present</p>
+          </CardContent>
+        </Card>
+        <Card className="border border-border/50 shadow-sm bg-card hover:shadow-md transition-shadow relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-1 bg-rose-500"></div>
+          <CardContent className="p-4">
+            <h3 className="text-2xl font-extrabold tracking-tight text-foreground">{daysAbsent}</h3>
+            <p className="text-[10px] font-bold mt-1 text-muted-foreground uppercase tracking-wider">Days Absent</p>
+          </CardContent>
+        </Card>
+        <Card className="border border-border/50 shadow-sm bg-card hover:shadow-md transition-shadow relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-1 bg-indigo-500"></div>
+          <CardContent className="p-4">
+            <h3 className="text-2xl font-extrabold tracking-tight text-foreground">{totalConducted}</h3>
+            <p className="text-[10px] font-bold mt-1 text-muted-foreground uppercase tracking-wider">Total Classes</p>
+          </CardContent>
+        </Card>
+        <Card className="border border-border/50 shadow-sm bg-card hover:shadow-md transition-shadow relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-1 bg-teal-500"></div>
+          <CardContent className="p-4">
+            <h3 className="text-2xl font-extrabold tracking-tight text-foreground">{totalAttended}</h3>
+            <p className="text-[10px] font-bold mt-1 text-muted-foreground uppercase tracking-wider">Classes Attended</p>
+          </CardContent>
+        </Card>
+        <Card className="border border-border/50 shadow-sm bg-card hover:shadow-md transition-shadow relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-1 bg-orange-500"></div>
+          <CardContent className="p-4">
+            <h3 className="text-2xl font-extrabold tracking-tight text-foreground">{totalMissed}</h3>
+            <p className="text-[10px] font-bold mt-1 text-muted-foreground uppercase tracking-wider">Classes Missed</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <Card className="border border-border/50 shadow-sm bg-card">
+          <CardHeader className="border-b border-border/50 bg-muted/20 px-5 py-4">
+            <CardTitle className="text-base font-semibold flex items-center gap-2"><BookOpen className="w-4 h-4 text-primary"/> Subject-wise Breakdown</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader className="bg-muted/5">
+                  <TableRow className="border-b border-border/50 hover:bg-transparent">
+                    <TableHead className="font-semibold text-xs tracking-wider text-muted-foreground uppercase">Subject</TableHead>
+                    <TableHead className="font-semibold text-xs tracking-wider text-muted-foreground uppercase">Faculty</TableHead>
+                    <TableHead className="font-semibold text-xs tracking-wider text-muted-foreground uppercase text-center">Conducted</TableHead>
+                    <TableHead className="font-semibold text-xs tracking-wider text-muted-foreground uppercase text-center">Attended</TableHead>
+                    <TableHead className="font-semibold text-xs tracking-wider text-muted-foreground uppercase text-center">Missed</TableHead>
+                    <TableHead className="font-semibold text-xs tracking-wider text-muted-foreground uppercase text-center">Percentage</TableHead>
+                    <TableHead className="font-semibold text-xs tracking-wider text-muted-foreground uppercase text-right">Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {mockSubjectAttendance.map((sub, idx) => {
+                    const total = sub.total;
+                    const attended = Math.max(0, Math.floor(total * (student.attendance / 100) + (Math.random() * 4 - 2)));
+                    const missedCount = total - attended;
+                    const pct = (attended / total) * 100;
+                    return (
+                      <TableRow key={idx} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
+                        <TableCell className="font-semibold text-sm whitespace-nowrap">{sub.name}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground whitespace-nowrap">Prof. Faculty</TableCell>
+                        <TableCell className="text-center text-sm">{total}</TableCell>
+                        <TableCell className="text-center text-sm font-semibold text-emerald-500">{attended}</TableCell>
+                        <TableCell className="text-center text-sm font-semibold text-rose-500">{missedCount}</TableCell>
+                        <TableCell className="text-center">
+                          <span className="font-bold text-sm">{pct.toFixed(1)}%</span>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {getStatusBadge(pct)}
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border border-border/50 shadow-sm bg-card">
+          <CardHeader className="bg-muted/20 border-b border-border/50 px-5 py-4 flex flex-row items-center justify-between">
+            <CardTitle className="text-base font-semibold flex items-center gap-2"><Clock className="w-4 h-4 text-primary"/> Complete Absence Record</CardTitle>
+            <Button variant="outline" size="sm" className="h-8 gap-2 text-xs"><Filter size={12}/> Filter</Button>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader className="bg-muted/5">
+                  <TableRow className="border-b border-border/50 hover:bg-transparent">
+                    <TableHead className="font-semibold text-xs tracking-wider text-muted-foreground uppercase">Date</TableHead>
+                    <TableHead className="font-semibold text-xs tracking-wider text-muted-foreground uppercase">Day</TableHead>
+                    <TableHead className="font-semibold text-xs tracking-wider text-muted-foreground uppercase">Subject</TableHead>
+                    <TableHead className="font-semibold text-xs tracking-wider text-muted-foreground uppercase">Time</TableHead>
+                    <TableHead className="font-semibold text-xs tracking-wider text-muted-foreground uppercase text-center">Absence Type</TableHead>
+                    <TableHead className="font-semibold text-xs tracking-wider text-muted-foreground uppercase text-right">Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {[...mockStudentAbsenceHistory].map((abs, i) => (
+                    <TableRow key={i} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
+                      <TableCell className="font-semibold text-sm whitespace-nowrap">{abs.date}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground whitespace-nowrap">{abs.day}</TableCell>
+                      <TableCell className="text-sm font-medium whitespace-nowrap">{abs.subject}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground whitespace-nowrap">{abs.time}</TableCell>
+                      <TableCell className="text-center">
+                        <Badge variant="outline" className={`text-[10px] whitespace-nowrap ${abs.absenceType === 'Full Day' ? 'text-rose-500 border-rose-500/20 bg-rose-500/10' : 'text-amber-500 border-amber-500/20 bg-amber-500/10'}`}>
+                          {abs.absenceType}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Badge variant="rejected" className="text-[10px] whitespace-nowrap">{abs.status}</Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card className="border border-border/50 shadow-sm bg-card overflow-hidden">
+        <div className="bg-gradient-to-br from-indigo-500/10 via-purple-500/5 to-background border-b border-border/50 px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <CardTitle className="text-base font-semibold flex items-center gap-2"><Sparkles className="w-4 h-4 text-indigo-500"/> AI Attendance Summary & Action Plan</CardTitle>
+          <Badge variant="outline" className="text-[10px] text-indigo-500 border-indigo-500/20 bg-indigo-500/10 hidden sm:flex">Generated securely by AcroNexus AI</Badge>
+        </div>
+        <CardContent className="p-5 flex flex-col md:flex-row gap-6 items-start">
+          <div className="bg-indigo-500/10 p-4 rounded-full shrink-0">
+             <Sparkles className="w-8 h-8 text-indigo-500" />
+          </div>
+          <div className="space-y-4 w-full">
+            <p className="text-sm text-foreground font-medium leading-relaxed">
+              {aiInsight}
+            </p>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-4 mt-2 border-t border-border/50">
+              <div className="flex flex-col space-y-1">
+                <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Pattern: Mon Mornings</span>
+                <Badge variant="outline" className="w-fit text-[10px] text-amber-500 border-amber-500/20 bg-amber-500/10">High Absence</Badge>
+              </div>
+              <div className="flex flex-col space-y-1">
+                <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Pattern: Labs</span>
+                <Badge variant="outline" className="w-fit text-[10px] text-emerald-500 border-emerald-500/20 bg-emerald-500/10">100% Present</Badge>
+              </div>
+              <div className="flex flex-col space-y-1">
+                <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Pattern: Pre-Holiday</span>
+                <Badge variant="outline" className="w-fit text-[10px] text-rose-500 border-rose-500/20 bg-rose-500/10">Often Missed</Badge>
+              </div>
+              <div className="flex flex-col space-y-1">
+                <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Recommended Action</span>
+                {student.attendance < 75 ? (
+                  <Button size="sm" className="h-6 text-[10px] bg-rose-500 hover:bg-rose-600 text-white shadow-sm w-fit"><AlertTriangle className="w-3 h-3 mr-1"/> Issue Warning</Button>
+                ) : (
+                  <Badge variant="outline" className="w-fit text-[10px] text-emerald-500 border-emerald-500/20 bg-emerald-500/10"><CheckCircle className="w-3 h-3 mr-1"/> On Track</Badge>
+                )}
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </motion.div>
+  );
+};
+
+const CoordinatorDashboard = ({ onSelectStudent, students, section, semester }: { onSelectStudent: (id: string) => void, students: any[], section: string, semester: number }) => {
+  const [search, setSearch] = useState('');
+  
+  const filtered = students.filter(s => 
+    s.name.toLowerCase().includes(search.toLowerCase()) || 
+    s.enrollment.toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+    <div className="lg:col-span-3 space-y-6">
+      <Card className="border-border/50 shadow-sm bg-card">
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/50 bg-muted/20 px-6 py-4">
+          <CardTitle className="text-base font-semibold flex items-center gap-2">
+            <Users className="w-4 h-4 text-primary" /> My Section Students ({section} â€¢ Sem {semester})
+          </CardTitle>
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+            <div className="relative w-full sm:w-[250px]">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <Input 
+                type="text" 
+                placeholder="Search students..." 
+                className="w-full pl-9 h-9 text-sm bg-background/50 border-border/50" 
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+              />
+            </div>
+            <Button variant="outline" size="sm" className="gap-2 h-9 bg-background/50 border-border/50">
+              <Filter size={14} /> Filter
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader className="bg-muted/10">
+                <TableRow className="hover:bg-transparent border-b border-border/50">
+                  <TableHead className="font-semibold text-xs tracking-wider uppercase">Student</TableHead>
+                  <TableHead className="font-semibold text-xs tracking-wider uppercase">Enrollment No.</TableHead>
+                  <TableHead className="font-semibold text-xs tracking-wider uppercase text-center">Overall Attendance</TableHead>
+                  <TableHead className="font-semibold text-xs tracking-wider uppercase text-center">Status</TableHead>
+                  <TableHead className="font-semibold text-xs tracking-wider uppercase text-right">Action</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filtered.map((student) => (
+                  <TableRow key={student.id} className="hover:bg-muted/30 transition-colors border-b border-border/50 cursor-pointer" onClick={() => onSelectStudent(student.id)}>
+                    <TableCell className="py-3">
+                      <div className="flex items-center gap-3">
+                        <img src={student.photo} alt={student.name} className="w-8 h-8 rounded-full object-cover border border-border/50" />
+                        <span className="font-semibold text-sm text-foreground">{student.name}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-sm font-medium text-muted-foreground">
+                      {student.enrollment}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <div className="flex flex-col items-center gap-1">
+                        <span className="font-bold text-sm">{student.attendance}%</span>
+                        <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
+                          <div className={`h-full ${getProgressBarColor(student.attendance)}`} style={{ width: `${student.attendance}%` }}></div>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {getStatusBadge(student.attendance)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="ghost" size="sm" className="text-xs hover:bg-primary/10 hover:text-primary transition-colors" onClick={(e) => { e.stopPropagation(); onSelectStudent(student.id); }}>
+                        View Details
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
 export const AttendanceModule = () => {
   const { user, role } = useAuth();
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'history' | 'calculator' | 'teachingHistory'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'calculator' | 'teachingHistory'>(() => 
+    role === 'faculty' ? 'teachingHistory' : 'dashboard'
+  );
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
+  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
+  
+  // Coordinator specific simulation
+  const assignedSection = 'IT-2';
+  const assignedSemester = 5;
+  const coordinatorSectionStudents = mockCoordinatorStudents.filter(s => s.section === assignedSection && s.semester === assignedSemester);
   
   // Admin Session State
   const [adminSessions, setAdminSessions] = useState(mockAdminSessions);
@@ -1222,8 +1453,6 @@ export const AttendanceModule = () => {
       requireVerification: false
     }
   });
-
-  const requireVerification = watch('requireVerification');
 
   const handleGenerateCode = () => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -1310,28 +1539,38 @@ export const AttendanceModule = () => {
         </div>
         <div className="flex gap-2">
         <div className="flex flex-col sm:flex-row gap-3">
-          {['faculty', 'hod', 'coordinator'].includes(role) ? (
+          {['faculty', 'hod', 'coordinator', 'both'].includes(role) ? (
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
               <div className="flex bg-muted/50 p-1 rounded-lg border border-border/50">
-                <button 
-                  onClick={() => setActiveTab('dashboard')} 
-                  className={`px-4 py-1.5 text-sm font-semibold rounded-md transition-all flex-1 sm:flex-none ${activeTab === 'dashboard' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-                >
-                  Dashboard
-                </button>
-                <button 
-                  onClick={() => { setActiveTab('teachingHistory'); setSelectedSessionId(null); }} 
-                  className={`px-4 py-1.5 text-sm font-semibold rounded-md transition-all flex-1 sm:flex-none ${activeTab === 'teachingHistory' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-                >
-                  Teaching History
-                </button>
+                {role !== 'faculty' && (
+                  <button 
+                    onClick={() => setActiveTab('dashboard')} 
+                    className={`px-4 py-1.5 text-sm font-semibold rounded-md transition-all flex-1 sm:flex-none ${activeTab === 'dashboard' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                  >
+                    Dashboard
+                  </button>
+                )}
+                {role !== 'coordinator' && (
+                  <button 
+                    onClick={() => { setActiveTab('teachingHistory'); setSelectedSessionId(null); }} 
+                    className={`px-4 py-1.5 text-sm font-semibold rounded-md transition-all flex-1 sm:flex-none ${activeTab === 'teachingHistory' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                  >
+                    Teaching History
+                  </button>
+                )}
               </div>
-              <Button onClick={() => setShowMarkModal(true)} variant="outline" className="gap-2 shadow-sm whitespace-nowrap bg-background">
-                <CheckCircle size={16} /> Mark Attendance
-              </Button>
-              <Button onClick={() => setShowCreateModal(true)} className="gap-2 shadow-sm bg-primary hover:bg-primary/90 text-primary-foreground whitespace-nowrap">
-                <Plus size={16} /> Create Session
-              </Button>
+
+              {['faculty', 'both'].includes(role) && (
+                <Button onClick={() => setShowMarkModal(true)} variant="outline" className="gap-2 shadow-sm whitespace-nowrap bg-background">
+                  <CheckCircle size={16} /> Mark Attendance
+                </Button>
+              )}
+
+              {role !== 'coordinator' && role !== 'faculty' && activeTab !== 'teachingHistory' && (
+                <Button onClick={() => setShowCreateModal(true)} className="gap-2 shadow-sm bg-primary hover:bg-primary/90 text-primary-foreground whitespace-nowrap">
+                  <Plus size={16} /> Create Session
+                </Button>
+              )}
             </div>
           ) : (
             <div className="flex bg-muted/50 p-1 rounded-lg border border-border/50">
@@ -1340,12 +1579,6 @@ export const AttendanceModule = () => {
                 className={`px-4 py-1.5 text-sm font-semibold rounded-md transition-all ${activeTab === 'dashboard' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
               >
                 Dashboard
-              </button>
-              <button 
-                onClick={() => setActiveTab('history')} 
-                className={`px-4 py-1.5 text-sm font-semibold rounded-md transition-all ${activeTab === 'history' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-              >
-                History
               </button>
               <button 
                 onClick={() => setActiveTab('calculator')} 
@@ -1361,15 +1594,24 @@ export const AttendanceModule = () => {
 
       {activeTab === 'dashboard' && (
         <AnimatePresence mode="wait">
-          {selectedSubjectId && role === 'student' ? (
+          {selectedStudentId && role === 'coordinator' ? (
+            <StudentAttendanceDetails 
+              student={coordinatorSectionStudents.find(s => s.id === selectedStudentId)}
+              onBack={() => setSelectedStudentId(null)}
+            />
+          ) : selectedSubjectId && role === 'student' ? (
             <SubjectAttendanceDetails 
               subject={mockSubjectAttendance.find(s => s.name === selectedSubjectId)}
               onBack={() => setSelectedSubjectId(null)}
             />
-          ) : selectedSessionId && ['faculty', 'hod', 'coordinator'].includes(role) ? (
+          ) : selectedSessionId && ['faculty', 'hod', 'coordinator', 'both'].includes(role) ? (
             <AdminSessionDetails
               session={adminSessions.find(s => s.id === selectedSessionId)}
               onBack={() => setSelectedSessionId(null)}
+            />
+          ) : role === 'student' ? (
+            <StudentAttendanceDetails 
+              student={mockCoordinatorStudents[0]}
             />
           ) : (
             <motion.div 
@@ -1382,71 +1624,130 @@ export const AttendanceModule = () => {
             >
           
           {/* Top KPIs */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <Card className="border border-border/50 bg-card shadow-sm overflow-hidden relative group hover:shadow-md transition-shadow">
-              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-cyan-500"></div>
-              <CardContent className="p-6">
-                <div className="flex justify-between items-start mb-4">
-                  <div className="p-2 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400">
-                    <TrendingUp className="w-5 h-5" />
+          {role === 'coordinator' ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <Card className="border-border/50 shadow-sm bg-card hover:shadow-md transition-shadow relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-1 bg-blue-500"></div>
+                <CardContent className="p-5">
+                  <div className="flex justify-between items-start mb-2">
+                    <div className="p-2 rounded-lg bg-blue-500/10 text-blue-500"><Users className="w-5 h-5"/></div>
                   </div>
-                  {getStatusBadge(parseFloat(overallPercentage))}
-                </div>
-                <div>
-                  <h3 className="text-3xl font-bold text-foreground tracking-tight">{overallPercentage}%</h3>
-                  <p className="text-sm font-medium text-muted-foreground mt-1">Overall Attendance</p>
-                </div>
-                <div className="mt-4 h-2 w-full bg-muted rounded-full overflow-hidden">
-                  <div className={`h-full ${getProgressBarColor(parseFloat(overallPercentage))} rounded-full`} style={{ width: `${overallPercentage}%` }}></div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border border-border/50 bg-card shadow-sm overflow-hidden relative group hover:shadow-md transition-shadow">
-              <div className="absolute top-0 left-0 w-full h-1 bg-indigo-500"></div>
-              <CardContent className="p-6">
-                <div className="flex justify-between items-start mb-4">
-                  <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
-                    <BookOpen className="w-5 h-5" />
+                  <div>
+                    <h3 className="text-3xl font-extrabold tracking-tight text-foreground">{coordinatorSectionStudents.length}</h3>
+                    <p className="text-xs font-bold mt-1 text-muted-foreground uppercase tracking-wider">Total Students</p>
                   </div>
-                </div>
-                <div>
-                  <h3 className="text-3xl font-bold text-foreground tracking-tight">{totalClasses}</h3>
-                  <p className="text-sm font-medium text-muted-foreground mt-1">Total Classes Conducted</p>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border border-border/50 bg-card shadow-sm overflow-hidden relative group hover:shadow-md transition-shadow">
-              <div className="absolute top-0 left-0 w-full h-1 bg-emerald-500"></div>
-              <CardContent className="p-6">
-                <div className="flex justify-between items-start mb-4">
-                  <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                    <CheckCircle className="w-5 h-5" />
+                </CardContent>
+              </Card>
+              <Card className="border-border/50 shadow-sm bg-card hover:shadow-md transition-shadow relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-1 bg-emerald-500"></div>
+                <CardContent className="p-5">
+                  <div className="flex justify-between items-start mb-2">
+                    <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-500"><CheckCircle className="w-5 h-5"/></div>
                   </div>
-                </div>
-                <div>
-                  <h3 className="text-3xl font-bold text-foreground tracking-tight">{totalAttended}</h3>
-                  <p className="text-sm font-medium text-muted-foreground mt-1">Total Classes Attended</p>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border border-border/50 bg-card shadow-sm overflow-hidden relative group hover:shadow-md transition-shadow">
-              <div className="absolute top-0 left-0 w-full h-1 bg-rose-500"></div>
-              <CardContent className="p-6">
-                <div className="flex justify-between items-start mb-4">
-                  <div className="p-2 rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-400">
-                    <AlertTriangle className="w-5 h-5" />
+                  <div>
+                    <h3 className="text-3xl font-extrabold tracking-tight text-foreground">
+                      {coordinatorSectionStudents.length > 0 ? Math.round(coordinatorSectionStudents.reduce((a, b) => a + b.attendance, 0) / coordinatorSectionStudents.length) : 0}%
+                    </h3>
+                    <p className="text-xs font-bold mt-1 text-muted-foreground uppercase tracking-wider">Section Avg Attendance</p>
                   </div>
-                </div>
-                <div>
-                  <h3 className="text-3xl font-bold text-foreground tracking-tight">{totalMissed}</h3>
-                  <p className="text-sm font-medium text-muted-foreground mt-1">Total Classes Missed</p>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+                </CardContent>
+              </Card>
+              <Card className="border-border/50 shadow-sm bg-card hover:shadow-md transition-shadow relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-1 bg-indigo-500"></div>
+                <CardContent className="p-5">
+                  <div className="flex justify-between items-start mb-2">
+                    <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-500"><TrendingUp className="w-5 h-5"/></div>
+                  </div>
+                  <div>
+                    <h3 className="text-3xl font-extrabold tracking-tight text-foreground">
+                      {coordinatorSectionStudents.filter(s => s.status === 'Safe').length}
+                    </h3>
+                    <p className="text-xs font-bold mt-1 text-muted-foreground uppercase tracking-wider">Students in Safe Zone</p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="border-border/50 shadow-sm bg-card hover:shadow-md transition-shadow relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-1 bg-rose-500"></div>
+                <CardContent className="p-5">
+                  <div className="flex justify-between items-start mb-2">
+                    <div className="p-2 rounded-lg bg-rose-500/10 text-rose-500"><AlertTriangle className="w-5 h-5"/></div>
+                  </div>
+                  <div>
+                    <h3 className="text-3xl font-extrabold tracking-tight text-foreground">
+                      {coordinatorSectionStudents.filter(s => s.status === 'Critical').length}
+                    </h3>
+                    <p className="text-xs font-bold mt-1 text-muted-foreground uppercase tracking-wider">Students at Risk</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <Card className="border border-border/50 bg-card shadow-sm overflow-hidden relative group hover:shadow-md transition-shadow">
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-cyan-500"></div>
+                <CardContent className="p-6">
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="p-2 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                      <TrendingUp className="w-5 h-5" />
+                    </div>
+                    {getStatusBadge(parseFloat(overallPercentage))}
+                  </div>
+                  <div>
+                    <h3 className="text-3xl font-bold text-foreground tracking-tight">{overallPercentage}%</h3>
+                    <p className="text-sm font-medium text-muted-foreground mt-1">Overall Attendance</p>
+                  </div>
+                  <div className="mt-4 h-2 w-full bg-muted rounded-full overflow-hidden">
+                    <div className={`h-full ${getProgressBarColor(parseFloat(overallPercentage))} rounded-full`} style={{ width: `${overallPercentage}%` }}></div>
+                  </div>
+                </CardContent>
+              </Card>
+  
+              <Card className="border border-border/50 bg-card shadow-sm overflow-hidden relative group hover:shadow-md transition-shadow">
+                <div className="absolute top-0 left-0 w-full h-1 bg-indigo-500"></div>
+                <CardContent className="p-6">
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+                      <BookOpen className="w-5 h-5" />
+                    </div>
+                  </div>
+                  <div>
+                    <h3 className="text-3xl font-bold text-foreground tracking-tight">{totalClasses}</h3>
+                    <p className="text-sm font-medium text-muted-foreground mt-1">Total Classes Conducted</p>
+                  </div>
+                </CardContent>
+              </Card>
+  
+              <Card className="border border-border/50 bg-card shadow-sm overflow-hidden relative group hover:shadow-md transition-shadow">
+                <div className="absolute top-0 left-0 w-full h-1 bg-emerald-500"></div>
+                <CardContent className="p-6">
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                      <CheckCircle className="w-5 h-5" />
+                    </div>
+                  </div>
+                  <div>
+                    <h3 className="text-3xl font-bold text-foreground tracking-tight">{totalAttended}</h3>
+                    <p className="text-sm font-medium text-muted-foreground mt-1">Total Classes Attended</p>
+                  </div>
+                </CardContent>
+              </Card>
+  
+              <Card className="border border-border/50 bg-card shadow-sm overflow-hidden relative group hover:shadow-md transition-shadow">
+                <div className="absolute top-0 left-0 w-full h-1 bg-rose-500"></div>
+                <CardContent className="p-6">
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="p-2 rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-400">
+                      <AlertTriangle className="w-5 h-5" />
+                    </div>
+                  </div>
+                  <div>
+                    <h3 className="text-3xl font-bold text-foreground tracking-tight">{totalMissed}</h3>
+                    <p className="text-sm font-medium text-muted-foreground mt-1">Total Classes Missed</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             
@@ -1529,7 +1830,7 @@ export const AttendanceModule = () => {
                 <Card className="border border-border/50 bg-card shadow-sm overflow-hidden">
                   <CardHeader className="bg-muted/20 border-b border-border/50 px-5 py-4">
                     <CardTitle className="text-base font-semibold flex items-center gap-2">
-                      <SparklesIcon className="w-4 h-4 text-indigo-500" /> AI Insights
+                      <Sparkles className="w-4 h-4 text-indigo-500" /> AI Insights
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="p-5">
@@ -1615,6 +1916,13 @@ export const AttendanceModule = () => {
                   )
                 })}
               </div>
+            ) : role === 'coordinator' ? (
+              <CoordinatorDashboard 
+                onSelectStudent={setSelectedStudentId} 
+                students={coordinatorSectionStudents}
+                section={assignedSection}
+                semester={assignedSemester}
+              />
             ) : (
               <div className="lg:col-span-3 space-y-6">
                 <div className="flex items-center justify-between">
@@ -1631,7 +1939,7 @@ export const AttendanceModule = () => {
                         <div className="flex justify-between items-start mb-3">
                           <div>
                             <h4 className="font-bold text-base text-foreground line-clamp-1">{session.subject}</h4>
-                            <p className="text-xs text-muted-foreground font-medium mt-0.5">{session.class} • {session.type}</p>
+                            <p className="text-xs text-muted-foreground font-medium mt-0.5">{session.class} â€¢ {session.type}</p>
                           </div>
                           <Badge variant={session.status === 'Active' ? 'active' : session.status === 'Closed' ? 'outline' : 'rejected'}>
                             {session.status}
@@ -1673,74 +1981,11 @@ export const AttendanceModule = () => {
         </AnimatePresence>
       )}
 
-      {activeTab === 'teachingHistory' && ['faculty', 'hod', 'coordinator'].includes(role) && (
+      {activeTab === 'teachingHistory' && ['faculty', 'hod', 'coordinator', 'both'].includes(role) && (
         <AdminTeachingHistory />
       )}
 
-      {activeTab === 'history' && (
-        <Card className="border border-border/50 bg-card shadow-sm overflow-hidden">
-          <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/50 bg-muted/20 px-6 py-4">
-            <CardTitle className="text-base font-semibold flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-primary" /> Attendance History
-            </CardTitle>
-            <div className="flex items-center gap-3 w-full sm:w-auto">
-              <div className="relative w-full sm:w-[250px]">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                <Input type="text" placeholder="Search history..." className="w-full pl-9 h-9 text-sm bg-background/50 border-border/50" />
-              </div>
-              <Button variant="outline" size="sm" className="gap-2 h-9 bg-background/50 border-border/50">
-                <Filter size={14} /> Filter
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader className="bg-muted/10">
-                  <TableRow className="hover:bg-transparent border-b border-border/50">
-                    <TableHead className="font-semibold text-xs tracking-wider uppercase">Date & Time</TableHead>
-                    <TableHead className="font-semibold text-xs tracking-wider uppercase">Subject & Faculty</TableHead>
-                    <TableHead className="font-semibold text-xs tracking-wider uppercase">Type</TableHead>
-                    <TableHead className="font-semibold text-xs tracking-wider uppercase">Method</TableHead>
-                    <TableHead className="font-semibold text-xs tracking-wider uppercase text-right">Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {mockHistory.map((record, idx) => (
-                    <TableRow key={idx} className="hover:bg-muted/30 transition-colors border-b border-border/50">
-                      <TableCell className="py-4">
-                        <div className="flex flex-col">
-                          <span className="text-sm font-semibold text-foreground">{record.date}</span>
-                          <span className="text-xs text-muted-foreground mt-0.5">{record.time}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-col">
-                          <span className="text-sm font-semibold text-foreground">{record.subject}</span>
-                          <span className="text-xs text-muted-foreground mt-0.5">{record.faculty}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="text-[10px] py-0">{record.type}</Badge>
-                      </TableCell>
-                      <TableCell className="text-sm font-medium text-muted-foreground">
-                        {record.method}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {record.status === 'Present' ? (
-                          <Badge variant="active">Present</Badge>
-                        ) : (
-                          <Badge variant="rejected">Absent</Badge>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+
 
       {activeTab === 'calculator' && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -1813,22 +2058,3 @@ export const AttendanceModule = () => {
   );
 };
 
-// Helper for the Sparkles Icon
-function SparklesIcon(props: any) {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z" />
-    </svg>
-  )
-}

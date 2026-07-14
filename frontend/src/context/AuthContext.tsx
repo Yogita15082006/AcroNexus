@@ -15,6 +15,20 @@ export const AuthProvider = ({ children }) => {
   const [isEditMode, setIsEditMode] = useState(false);
 
   useEffect(() => {
+    // Check URL for preview mode
+    const params = new URLSearchParams(window.location.search);
+    const previewId = params.get('preview');
+
+    if (previewId) {
+      const selectedUser = mockData.admins.find(a => a.id === previewId || a.empId === previewId);
+      if (selectedUser) {
+        setRealUser(selectedUser);
+        setRealRole(selectedUser.role || 'faculty');
+        setLoading(false);
+        return; // Skip normal login if in preview mode
+      }
+    }
+
     // Check local storage for mock session
     const storedUser = localStorage.getItem('acronexus_user');
     const storedRole = localStorage.getItem('acronexus_role');

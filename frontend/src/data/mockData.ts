@@ -1,13 +1,13 @@
 export const generateMockData = () => {
   const classes = [
-    { id: '2_IT1', year: 'Second Year', name: 'IT-1' },
-    { id: '2_IT2', year: 'Second Year', name: 'IT-2' },
-    { id: '2_DS1', year: 'Second Year', name: 'DS-1' },
-    { id: '2_DS2', year: 'Second Year', name: 'DS-2' },
-    { id: '3_IT1', year: 'Third Year', name: 'IT-1' },
-    { id: '3_IT2', year: 'Third Year', name: 'IT-2' },
-    { id: '3_DS1', year: 'Third Year', name: 'DS-1' },
-    { id: '3_DS2', year: 'Third Year', name: 'DS-2' },
+    { id: '2_IT1', year: 'Second Year', semester: 'Semester 3', name: 'IT-1' },
+    { id: '2_IT2', year: 'Second Year', semester: 'Semester 3', name: 'IT-2' },
+    { id: '2_DS1', year: 'Second Year', semester: 'Semester 4', name: 'DS-1' },
+    { id: '2_DS2', year: 'Second Year', semester: 'Semester 4', name: 'DS-2' },
+    { id: '3_IT1', year: 'Third Year', semester: 'Semester 5', name: 'IT-1' },
+    { id: '3_IT2', year: 'Third Year', semester: 'Semester 5', name: 'IT-2' },
+    { id: '3_DS1', year: 'Third Year', semester: 'Semester 6', name: 'DS-1' },
+    { id: '3_DS2', year: 'Third Year', semester: 'Semester 6', name: 'DS-2' },
   ];
 
   const subjects = [
@@ -38,6 +38,7 @@ export const generateMockData = () => {
   let studentCounter = 1;
   const firstNames = ['Aarav', 'Vihaan', 'Vivaan', 'Ananya', 'Diya', 'Advik', 'Kabir', 'Anika', 'Navya', 'Ayaan', 'Dhruv', 'Sanya', 'Tara', 'Rohan', 'Arjun', 'Meera', 'Riya', 'Ishaan', 'Kriti', 'Aditya'];
   const lastNames = ['Sharma', 'Verma', 'Gupta', 'Patel', 'Singh', 'Kumar', 'Joshi', 'Chauhan', 'Rajput', 'Jain', 'Mehta', 'Bansal', 'Agarwal', 'Mishra', 'Pandey', 'Tiwari', 'Yadav', 'Reddy', 'Nair', 'Das'];
+  const femaleFirstNames = new Set(['Ananya', 'Diya', 'Anika', 'Navya', 'Sanya', 'Tara', 'Meera', 'Riya', 'Kriti']);
 
   const facultyRequests = [
     { id: 'FR1', name: 'Ravi Verma', email: 'ravi.verma@acropolis.in', empId: 'EMP101', mobile: '+91 9876543210', department: 'Information Technology', requestedClasses: ['2_IT1', '2_IT2'], status: 'Pending', requestedAt: new Date(Date.now() - 2 * 86400000).toISOString() },
@@ -45,29 +46,38 @@ export const generateMockData = () => {
     { id: 'FR3', name: 'Kunal Desai', email: 'kunal.desai@acropolis.in', empId: 'EMP103', mobile: '+91 7654321098', department: 'Data Science', requestedClasses: ['2_DS1'], status: 'Pending', requestedAt: new Date(Date.now() - 1 * 86400000).toISOString() },
   ];
 
+  // Batch-to-year/semester auto calculation helper
+  const batchMap: Record<string, { batch: string, year: string, semester: number }> = {
+    'Second Year': { batch: '2024-2028', year: '2nd Year', semester: 3 },
+    'Third Year': { batch: '2023-2027', year: '3rd Year', semester: 5 },
+  };
+
   classes.forEach((cls) => {
+    const batchInfo = batchMap[cls.year] || { batch: '2024-2028', year: '2nd Year', semester: 3 };
     for (let i = 0; i < 60; i++) {
       const firstName = firstNames[Math.floor(Math.random() * firstNames.length)];
       const lastName = lastNames[Math.floor(Math.random() * lastNames.length)];
       const enrollNum = `0827${cls.name.replace('-', '')}${23000 + studentCounter}`;
       
-      const overallAttendance = Math.floor(Math.random() * 40) + 60; // 60-100%
+      const overallAttendance = Math.floor(Math.random() * 40) + 60;
       const cgpa = (Math.random() * 4 + 6).toFixed(2);
       
       students.push({
         id: `STU${studentCounter}`,
         name: `${firstName} ${lastName}`,
+        gender: femaleFirstNames.has(firstName) ? 'Female' : 'Male',
         email: `${firstName.toLowerCase()}.${lastName.toLowerCase()}${studentCounter}@acropolis.in`,
         enrollmentNumber: enrollNum,
         phone: `+91 ${9000000000 + Math.floor(Math.random() * 999999999)}`,
         classId: cls.id,
         className: cls.name,
         year: cls.year,
-        semester: cls.year === 'Second Year' ? '3rd' : '5th',
-        batch: i < 30 ? 'A1' : 'A2',
+        semester: `${batchInfo.semester}`,
+        batch: batchInfo.batch,
         branch: 'Information Technology',
         overallAttendance,
         avatar: `https://i.pravatar.cc/150?u=${enrollNum}`,
+        status: Math.random() > 0.05 ? 'Active' : 'Inactive',
         sgpa: {
           sem1: (Math.random() * 3 + 7).toFixed(2),
           sem2: (Math.random() * 3 + 7).toFixed(2),
@@ -152,6 +162,7 @@ export const generateMockData = () => {
     const publishDate = new Date(Date.now() - Math.random() * 15 * 24 * 60 * 60 * 1000); // within last 15 days
     const expiryDate = new Date(publishDate.getTime() + (Math.random() * 20 + 5) * 24 * 60 * 60 * 1000); // 5 to 25 days later
     const statuses = ['Active', 'Active', 'Active', 'Draft', 'Archived'];
+    const noticeAuthor = admins[Math.floor(Math.random() * admins.length)];
     return {
       id: `not-${i + 1}`,
       title: `${template.title} ${Math.floor(i / noticeTemplates.length) > 0 ? `(Update ${Math.floor(i / noticeTemplates.length)})` : ''}`,
@@ -173,7 +184,9 @@ export const generateMockData = () => {
       targetClasses: [classes[Math.floor(Math.random() * classes.length)].name],
       targetYear: ['2nd Year', '3rd Year', '4th Year'][Math.floor(Math.random() * 3)],
       targetSemester: `Semester ${Math.floor(Math.random() * 6) + 3}`,
-      postedBy: admins[Math.floor(Math.random() * admins.length)].name,
+      postedById: noticeAuthor.id,
+      postedBy: noticeAuthor.name,
+      subjectId: subjects[Math.floor(Math.random() * subjects.length)].id,
     };
   });
 
@@ -187,6 +200,9 @@ export const generateMockData = () => {
 
   const events = Array.from({ length: 15 }).map((_, i) => {
     const template = eventTemplates[i % eventTemplates.length];
+    const eventClass = classes[Math.floor(Math.random() * classes.length)];
+    const eventFacultyPool = admins.filter(a => a.classes.includes(eventClass.id));
+    const eventFaculty = eventFacultyPool.length > 0 ? eventFacultyPool[Math.floor(Math.random() * eventFacultyPool.length)] : admins[0];
     return {
       id: `E${i + 1}`,
       title: `${template.title} ${Math.floor(i / eventTemplates.length) > 0 ? `(Vol ${Math.floor(i / eventTemplates.length) + 1})` : ''}`,
@@ -196,6 +212,9 @@ export const generateMockData = () => {
       venue: template.venue,
       registrationDeadline: new Date(Date.now() + Math.random() * 20 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       attendanceIncluded: Math.random() > 0.5,
+      classId: eventClass.id,
+      facultyId: eventFaculty.id,
+      facultyName: eventFaculty.name,
     };
   });
 
@@ -219,12 +238,16 @@ export const generateMockData = () => {
     const deadlineDate = new Date(Date.now() + (Math.random() * 40 - 20) * 86400000); // Past or future
     const isExpired = deadlineDate < new Date();
     const createdAt = new Date(deadlineDate.getTime() - 7 * 86400000);
+    const assignedFaculty = admins.filter(a => a.classes.includes(classObj.id));
+    const faculty = assignedFaculty.length > 0 ? assignedFaculty[Math.floor(Math.random() * assignedFaculty.length)] : admins[0];
     
     return {
       id: `AS${i + 1}`,
       title: `${template.title} (Batch ${classObj.name})`,
       subjectId: subjects[Math.floor(Math.random() * subjects.length)].id,
       classId: classObj.id,
+      facultyId: faculty.id,
+      facultyName: faculty.name,
       department: classObj.name.includes('IT') ? 'IT' : 'DS',
       academicYear: classObj.year,
       type,
@@ -285,6 +308,8 @@ export const generateMockData = () => {
     const isPast = dateObj < new Date();
     const totalMarks = [20, 30, 50, 100][Math.floor(Math.random() * 4)];
     const numQuestions = totalMarks / (Math.random() > 0.5 ? 1 : 2);
+    const quizFaculty = admins.filter(a => a.classes.includes(classObj.id));
+    const selectedFaculty = quizFaculty.length > 0 ? quizFaculty[Math.floor(Math.random() * quizFaculty.length)] : admins[0];
 
     return {
       id: `Q${i + 1}`,
@@ -293,7 +318,9 @@ export const generateMockData = () => {
       classId: classObj.id,
       department: classObj.name.includes('IT') ? 'IT' : 'DS',
       academicYear: classObj.year,
-      facultyName: admins[Math.floor(Math.random() * admins.length)].name,
+      semester: classObj.semester,
+      facultyId: selectedFaculty.id,
+      facultyName: selectedFaculty.name,
       date: dateObj.toISOString().split('T')[0],
       startTime: dateObj.toISOString(),
       duration: [15, 30, 45, 60][Math.floor(Math.random() * 4)], // minutes
@@ -423,7 +450,121 @@ export const generateMockData = () => {
     };
   });
 
-  return { classes, subjects, admins, students, notices, events, assignments, assignmentSubmissions, quizzes, quizAttempts, examinations, examinationResults, examTimetables, facultyRequests, facultyActivities };
+  // Attendance sessions - each faculty creates attendance for their class/subject
+  const attendanceSessions: any[] = [];
+  let attendanceCounter = 0;
+  admins.forEach(faculty => {
+    faculty.classes.forEach(classId => {
+      faculty.subjects.forEach(subjectId => {
+        const sub = subjects.find(s => s.id === subjectId);
+        const cls = classes.find(c => c.id === classId);
+        if (!sub || !cls) return;
+        const classStudentCount = students.filter(s => s.classId === classId).length;
+        // Generate 8-15 sessions per faculty-class-subject combination
+        const sessionCount = Math.floor(Math.random() * 8) + 8;
+        for (let d = 0; d < sessionCount; d++) {
+          const sessionDate = new Date();
+          sessionDate.setDate(sessionDate.getDate() - Math.floor(Math.random() * 45));
+          if (sessionDate.getDay() === 0 || sessionDate.getDay() === 6) continue;
+          const presentCount = Math.floor(classStudentCount * (0.65 + Math.random() * 0.3));
+          const absentCount = classStudentCount - presentCount;
+          attendanceSessions.push({
+            id: `ATT_${++attendanceCounter}`,
+            facultyId: faculty.id,
+            facultyName: faculty.name,
+            classId,
+            className: cls.name,
+            subjectId,
+            subjectName: sub.name,
+            date: sessionDate.toISOString().split('T')[0],
+            presentCount,
+            absentCount,
+            totalStudents: classStudentCount,
+            status: 'Completed'
+          });
+        }
+      });
+    });
+  });
+
+  // ============ FACULTY MANAGEMENT DATA ============
+
+  const uploadedSyllabus = [
+    {
+      id: 'SYL1', academicYear: '3rd Year', semester: 'Semester 5',
+      fileName: 'IT_Sem5_Syllabus_2026.pdf', uploadDate: '2026-06-15', status: 'Processed',
+      totalSubjects: 6,
+      detectedSubjects: [
+        { code: 'IT501', name: 'Machine Learning', type: 'Theory', isElective: false },
+        { code: 'IT502', name: 'Operating System', type: 'Theory', isElective: false },
+        { code: 'IT503', name: 'Computer Networks', type: 'Theory', isElective: false },
+        { code: 'IT504', name: 'Software Engineering', type: 'Theory', isElective: false },
+        { code: 'IT505', name: 'Database Management System', type: 'Theory', isElective: false },
+        { code: 'IT506', name: 'Machine Learning Lab', type: 'Lab', isElective: false },
+      ]
+    },
+    {
+      id: 'SYL2', academicYear: '2nd Year', semester: 'Semester 3',
+      fileName: 'IT_Sem3_Syllabus_2026.pdf', uploadDate: '2026-06-10', status: 'Processed',
+      totalSubjects: 6,
+      detectedSubjects: [
+        { code: 'IT301', name: 'Data Structures', type: 'Theory', isElective: false },
+        { code: 'IT302', name: 'Discrete Mathematics', type: 'Theory', isElective: false },
+        { code: 'IT303', name: 'Object Oriented Programming', type: 'Theory', isElective: false },
+        { code: 'IT304', name: 'Digital Electronics', type: 'Theory', isElective: false },
+        { code: 'IT305', name: 'Data Structures Lab', type: 'Lab', isElective: false },
+        { code: 'IT306', name: 'OOP Lab', type: 'Lab', isElective: false },
+      ]
+    }
+  ];
+
+  const uploadedSchemes = [
+    {
+      id: 'SCH1', name: 'B.Tech IT Scheme 2026 - Sem 5', academicYear: '3rd Year', semester: 'Semester 5',
+      fileName: 'IT_Scheme_Sem5.pdf', uploadDate: '2026-06-16', totalSubjects: 6,
+      subjects: ['Machine Learning', 'Operating System', 'Computer Networks', 'Software Engineering', 'Database Management System', 'ML Lab']
+    },
+    {
+      id: 'SCH2', name: 'B.Tech IT Scheme 2026 - Sem 3', academicYear: '2nd Year', semester: 'Semester 3',
+      fileName: 'IT_Scheme_Sem3.pdf', uploadDate: '2026-06-11', totalSubjects: 6,
+      subjects: ['Data Structures', 'Discrete Mathematics', 'OOP', 'Digital Electronics', 'DS Lab', 'OOP Lab']
+    }
+  ];
+
+  const uploadedTimetables = [
+    {
+      id: 'TT1', name: 'IT-1 Timetable Sem 5', academicYear: '3rd Year', semester: 'Semester 5', className: 'IT-1',
+      fileName: 'TT_IT1_Sem5.pdf', uploadDate: '2026-06-20',
+      slots: [
+        { day: 'Monday', time: '9:00-10:00', subject: 'Machine Learning', faculty: 'Dr. Rahul Sharma' },
+        { day: 'Monday', time: '10:00-11:00', subject: 'Operating System', faculty: 'Dr. Kavita Joshi' },
+        { day: 'Tuesday', time: '9:00-10:00', subject: 'Computer Networks', faculty: 'Prof. Sanjay Kumar' },
+        { day: 'Wednesday', time: '11:00-12:00', subject: 'Software Engineering', faculty: 'Dr. Anjali Gupta' },
+      ]
+    },
+    {
+      id: 'TT2', name: 'IT-2 Timetable Sem 5', academicYear: '3rd Year', semester: 'Semester 5', className: 'IT-2',
+      fileName: 'TT_IT2_Sem5.pdf', uploadDate: '2026-06-20',
+      slots: [
+        { day: 'Monday', time: '10:00-11:00', subject: 'Machine Learning', faculty: 'Dr. Rahul Sharma' },
+        { day: 'Tuesday', time: '11:00-12:00', subject: 'Operating System', faculty: 'Dr. Kavita Joshi' },
+        { day: 'Wednesday', time: '9:00-10:00', subject: 'Computer Networks', faculty: 'Prof. Sanjay Kumar' },
+      ]
+    }
+  ];
+
+  const aiFacultyAssignments = [
+    { id: 'AFA1', facultyName: 'Dr. Rahul Sharma', academicYear: '3rd Year', semester: 'Semester 5', className: 'IT-1', subject: 'Machine Learning', status: 'Pending' },
+    { id: 'AFA2', facultyName: 'Dr. Kavita Joshi', academicYear: '3rd Year', semester: 'Semester 5', className: 'IT-1', subject: 'Operating System', status: 'Pending' },
+    { id: 'AFA3', facultyName: 'Prof. Sanjay Kumar', academicYear: '3rd Year', semester: 'Semester 5', className: 'IT-1', subject: 'Computer Networks', status: 'Approved' },
+    { id: 'AFA4', facultyName: 'Dr. Anjali Gupta', academicYear: '3rd Year', semester: 'Semester 5', className: 'IT-1', subject: 'Software Engineering', status: 'Approved' },
+    { id: 'AFA5', facultyName: 'Dr. Megha Singh', academicYear: '3rd Year', semester: 'Semester 5', className: 'DS-1', subject: 'Database Management System', status: 'Pending' },
+    { id: 'AFA6', facultyName: 'Dr. Priya Verma', academicYear: '2nd Year', semester: 'Semester 3', className: 'IT-1', subject: 'Data Structures', status: 'Approved' },
+    { id: 'AFA7', facultyName: 'Prof. Vikram Rathore', academicYear: '2nd Year', semester: 'Semester 3', className: 'DS-1', subject: 'Discrete Mathematics', status: 'Pending' },
+    { id: 'AFA8', facultyName: 'Prof. Rohit Jain', academicYear: '2nd Year', semester: 'Semester 3', className: 'IT-2', subject: 'Object Oriented Programming', status: 'Rejected' },
+  ];
+
+  return { classes, subjects, admins, students, notices, events, assignments, assignmentSubmissions, quizzes, quizAttempts, examinations, examinationResults, examTimetables, facultyRequests, facultyActivities, attendanceSessions, uploadedSyllabus, uploadedSchemes, uploadedTimetables, aiFacultyAssignments };
 };
 
 export const mockData = generateMockData();

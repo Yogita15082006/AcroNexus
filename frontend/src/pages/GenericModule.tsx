@@ -25,7 +25,7 @@ export const GenericModule = ({ title, type }: { title: string, type: string }) 
             Streamline and manage all your {title.toLowerCase()} records efficiently with our comprehensive dashboard overview.
           </p>
         </div>
-        {['faculty', 'hod', 'coordinator'].includes(role) && (
+        {['faculty', 'hod', 'coordinator', 'both'].includes(role) && (
           <Button className="gap-2 shadow-sm hover:shadow-md transition-shadow">
             <Plus size={16} /> Create New {title}
           </Button>
@@ -117,7 +117,7 @@ export const GenericModule = ({ title, type }: { title: string, type: string }) 
                         </TableCell>
                         <TableCell>
                           <div className="flex justify-end">
-                            {['faculty', 'hod', 'coordinator'].includes(role) ? (
+                            {['faculty', 'hod', 'coordinator', 'both'].includes(role) ? (
                               <Button variant="ghost" size="sm" className="h-7 text-xs opacity-0 group-hover:opacity-100 transition-opacity">View</Button>
                             ) : (
                               <Button size="sm" className="h-7 text-xs shadow-sm">Submit</Button>

@@ -1,9 +1,10 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import { 
   BookOpen, CheckCircle, Clock, FileText, Calendar as CalendarIcon, 
   Bell, Activity, LayoutDashboard, Target, Trophy, 
-  AlertTriangle, ChevronRight, TrendingUp 
+  AlertTriangle, ChevronRight, TrendingUp, Folder 
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
@@ -11,6 +12,7 @@ import { Button } from '../components/ui/button';
 
 export const StudentDashboard = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   
   // KPI Data (Mocked for Student ERP View)
   const overallAttendance = user.overallAttendance || 78;
@@ -258,6 +260,22 @@ export const StudentDashboard = () => {
                     </div>
                   </div>
                 ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Academic Resources Dashboard Card */}
+          <Card 
+            className="border border-border/50 shadow-sm hover:shadow-md transition-all cursor-pointer group hover:border-primary/50 bg-card"
+            onClick={() => navigate('/student/academic-resources')}
+          >
+            <CardContent className="p-5 flex items-center gap-4">
+              <div className="p-3 bg-primary/10 rounded-xl group-hover:bg-primary/20 transition-colors">
+                <Folder className="w-6 h-6 text-primary" />
+              </div>
+              <div className="flex flex-col">
+                <h3 className="font-semibold text-foreground text-base group-hover:text-primary transition-colors">Academic Resources</h3>
+                <p className="text-xs text-muted-foreground">Access Syllabus, Schemes & Timetables</p>
               </div>
             </CardContent>
           </Card>

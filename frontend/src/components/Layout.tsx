@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { 
   LayoutDashboard, Users, BookOpen, Clock, 
-  Calendar, Bell, LogOut, Moon, Sun, UserCircle, Menu, GraduationCap, CheckSquare, ClipboardList
+  Calendar, Bell, LogOut, Moon, Sun, UserCircle, Menu, GraduationCap, CheckSquare, ClipboardList, Library
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -24,32 +24,30 @@ export const Layout = () => {
   };
 
   const adminLinks = [
-    { to: '/admin', icon: <LayoutDashboard size={18} />, label: 'Dashboard', roles: ['hod', 'coordinator', 'faculty'] },
-    ...(role === 'hod' ? [{ to: '/admin/coordinators', icon: <Users size={18} />, label: 'Class Coordinators', roles: ['hod'] }] : []),
-    ...(role === 'coordinator' ? [{ to: '/admin/faculty-requests', icon: <Users size={18} />, label: 'Faculty Requests', roles: ['coordinator'] }] : []),
-    { to: '/admin/students', icon: <Users size={18} />, label: 'Students', roles: ['hod', 'coordinator', 'faculty'] },
-    { to: '/admin/attendance', icon: <CheckSquare size={18} />, label: 'Attendance', roles: ['hod', 'coordinator', 'faculty'] },
-    ...(role === 'hod' || role === 'coordinator' ? [{ to: '/admin/faculty-activity', icon: <ClipboardList size={18} />, label: 'Faculty Activity', roles: ['hod', 'coordinator'] }] : []),
-    { to: '/admin/assignments', icon: <BookOpen size={18} />, label: 'Assignments', roles: ['hod', 'coordinator', 'faculty'] },
-    { to: '/admin/quiz', icon: <Clock size={18} />, label: 'Quiz', roles: ['hod', 'coordinator', 'faculty'] },
-    { to: '/admin/examinations', icon: <GraduationCap size={18} />, label: 'Examinations', roles: ['hod', 'coordinator', 'faculty'] },
-    { to: '/admin/events', icon: <Calendar size={18} />, label: 'Events', roles: ['hod', 'coordinator', 'faculty'] },
-    { to: '/admin/notice', icon: <Bell size={18} />, label: 'Notices', roles: ['hod', 'coordinator', 'faculty'] },
-    { to: '/admin/profile', icon: <UserCircle size={18} />, label: 'Profile', roles: ['hod', 'coordinator', 'faculty'] },
+    { to: '/admin', icon: <LayoutDashboard size={18} />, label: 'Dashboard', roles: ['hod', 'coordinator', 'faculty', 'both'] },
+    ...(role === 'hod' || role === 'coordinator' || role === 'faculty' || role === 'both' ? [{ to: '/admin/classes', icon: <Library size={18} />, label: 'Classes', roles: ['hod', 'coordinator', 'faculty', 'both'] }] : []),
+    ...(role === 'hod' ? [{ to: '/admin/students', icon: <GraduationCap size={18} />, label: 'Students', roles: ['hod'] }] : []),
+    ...(role === 'hod' ? [{ to: '/admin/faculty-management', icon: <Users size={18} />, label: 'Faculty Management', roles: ['hod'] }] : []),
+    ...(role === 'coordinator' || role === 'faculty' || role === 'both' ? [{ to: '/admin/students', icon: <GraduationCap size={18} />, label: 'Students', roles: ['coordinator', 'faculty', 'both'] }] : []),
+    ...(role !== 'hod' ? [{ to: '/admin/attendance', icon: <CheckSquare size={18} />, label: 'Attendance', roles: ['coordinator', 'faculty', 'both'] }] : []),
+    ...(role === 'hod' || role === 'coordinator' || role === 'both' ? [{ to: '/admin/faculty-activity', icon: <ClipboardList size={18} />, label: 'Faculty Activity', roles: ['hod', 'coordinator', 'both'] }] : []),
+    { to: '/admin/examinations', icon: <GraduationCap size={18} />, label: 'Examinations', roles: ['hod', 'coordinator', 'faculty', 'both'] },
+    { to: '/admin/events', icon: <Calendar size={18} />, label: 'Events', roles: ['hod', 'coordinator', 'faculty', 'both'] },
+    { to: '/admin/notice', icon: <Bell size={18} />, label: 'Notices', roles: ['hod', 'coordinator', 'faculty', 'both'] },
+    { to: '/admin/profile', icon: <UserCircle size={18} />, label: 'Profile', roles: ['hod', 'coordinator', 'faculty', 'both'] },
   ];
 
   const studentLinks = [
     { to: '/student', icon: <LayoutDashboard size={18} />, label: 'Dashboard' },
+    { to: '/student/classes', icon: <Library size={18} />, label: 'Classes' },
     { to: '/student/attendance', icon: <Users size={18} />, label: 'Attendance' },
-    { to: '/student/assignments', icon: <BookOpen size={18} />, label: 'Assignments' },
-    { to: '/student/quiz', icon: <Clock size={18} />, label: 'Quiz' },
     { to: '/student/examinations', icon: <GraduationCap size={18} />, label: 'Examinations' },
     { to: '/student/events', icon: <Calendar size={18} />, label: 'Events' },
     { to: '/student/notice', icon: <Bell size={18} />, label: 'Notices' },
     { to: '/student/profile', icon: <UserCircle size={18} />, label: 'Profile' },
   ];
 
-  const isStaff = ['admin', 'hod', 'coordinator', 'faculty'].includes(role);
+  const isStaff = ['admin', 'hod', 'coordinator', 'faculty', 'both'].includes(role);
   const links = isStaff ? adminLinks : studentLinks;
 
   // Determine current page title for the header
@@ -64,7 +62,7 @@ export const Layout = () => {
   return (
     <div className="flex h-screen w-full bg-background overflow-hidden font-sans text-foreground">
       {/* Sidebar - Premium Enterprise */}
-      <aside className="w-[240px] flex-shrink-0 bg-sidebar flex flex-col z-20 transition-all duration-300 border-r border-border">
+      <aside className="w-[240px] flex-shrink-0 bg-sidebar flex flex-col z-20 transition-all duration-300 border-r border-border print:hidden">
         <div className="flex items-center gap-3 px-5 h-14 border-b border-border flex-shrink-0">
           <div className="w-7 h-7 rounded bg-primary flex items-center justify-center text-white font-bold text-sm shadow-sm">
             A
@@ -115,6 +113,7 @@ export const Layout = () => {
               <p className="text-xs font-semibold truncate text-foreground">{user?.name}</p>
               <p className="text-[10px] text-muted-foreground truncate">
                 {role === 'hod' ? 'Head of Department' : 
+                 role === 'both' ? 'Coordinator & Faculty' :
                  role === 'coordinator' ? 'Class Coordinator' : 
                  role === 'faculty' ? 'Faculty Member' : 
                  role === 'student' ? user?.className : 'Administrator'}
@@ -184,7 +183,7 @@ export const Layout = () => {
         )}
         
         {/* Sticky Top Header */}
-        <header className="h-14 flex-shrink-0 bg-navbar/95 backdrop-blur border-b border-border flex items-center justify-between px-6 sticky top-0 z-10 transition-colors duration-300">
+        <header className="h-14 flex-shrink-0 bg-navbar/95 backdrop-blur border-b border-border flex items-center justify-between px-6 sticky top-0 z-10 transition-colors duration-300 print:hidden">
           <div className="flex items-center gap-4">
             <Button variant="ghost" size="icon" className="md:hidden hover:bg-accent/30 text-muted-foreground hover:text-foreground">
               <Menu size={18} />

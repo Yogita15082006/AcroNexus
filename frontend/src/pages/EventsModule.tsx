@@ -1661,9 +1661,9 @@ export const EventsModule = () => {
       </AnimatePresence>
 
     <div className="p-4 md:p-8 space-y-8 max-w-screen-2xl mx-auto pb-24 lg:pb-8">
-      {currentView === 'dashboard' && ['faculty', 'hod', 'coordinator'].includes(role) && renderAdminDashboard()}
-      {currentView === 'create_event' && ['faculty', 'hod', 'coordinator'].includes(role) && renderCreateEvent()}
-      {currentView === 'event_details' && ['faculty', 'hod', 'coordinator'].includes(role) && renderAdminEventDetails()}
+      {currentView === 'dashboard' && ['faculty', 'hod', 'coordinator', 'both'].includes(role) && renderAdminDashboard()}
+      {currentView === 'create_event' && ['faculty', 'hod', 'coordinator', 'both'].includes(role) && renderCreateEvent()}
+      {currentView === 'event_details' && ['faculty', 'hod', 'coordinator', 'both'].includes(role) && renderAdminEventDetails()}
       
       {currentView === 'dashboard' && role === 'student' && renderStudentDashboard()}
       {currentView === 'event_details' && role === 'student' && renderStudentEventDetails()}

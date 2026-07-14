@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { mockData } from '../data/mockData';
-import { User, Lock, ArrowRight, Sparkles, Eye, EyeOff, Upload, CheckCircle2, X } from 'lucide-react';
+import { User, Lock, ArrowRight, Sparkles, Eye, EyeOff, Upload, CheckCircle2, X, Mail, Briefcase, BookOpen, GraduationCap, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -24,7 +24,10 @@ export const Login = () => {
   const [regPassword, setRegPassword] = useState('');
   const [regDepartment, setRegDepartment] = useState('');
   const [idCardFile, setIdCardFile] = useState<File | null>(null);
-  const [facultyRequestSent, setFacultyRequestSent] = useState(false);
+  
+  // Coordinator/Faculty Popup State
+  const [showCoordinatorPopup, setShowCoordinatorPopup] = useState(false);
+  const [newCoordinatorData, setNewCoordinatorData] = useState<any>(null);
   
   // Student Academic Registration States
   const [regYear, setRegYear] = useState('');
@@ -117,28 +120,7 @@ export const Login = () => {
     }, 800);
   };
 
-  const handleRegister = (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    
-    if (role === 'student' && !idCardFile) {
-      setError('Please upload your Student ID Card.');
-      return;
-    }
-    
-    setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
-      
-      if (role === 'faculty') {
-        setFacultyRequestSent(true);
-      } else {
-        setIsRegistering(false);
-        setUserId(regId);
-        setPassword(regPassword);
-      }
-      
-      // Reset form
+  const resetRegistrationForm = () => {
       setRegName('');
       setRegEmail('');
       setRegMobile('');
@@ -156,6 +138,99 @@ export const Login = () => {
       setRegSgpas({ sem1: '', sem2: '', sem3: '', sem4: '', sem5: '', sem6: '', sem7: '', sem8: '' });
       setRegSubjects([]);
       setCurrentSubject('');
+  };
+
+  const handleCoordinatorConfirm = () => {
+    mockData.admins.push({
+      id: newCoordinatorData.id,
+      name: newCoordinatorData.name,
+      email: newCoordinatorData.email,
+      empId: newCoordinatorData.empId,
+      subjects: newCoordinatorData.subjects || [],
+      classes: newCoordinatorData.classes || [],
+      role: newCoordinatorData.role
+    });
+    
+    setShowCoordinatorPopup(false);
+    resetRegistrationForm();
+    // Auto login for coordinator/faculty
+    login(newCoordinatorData.role, newCoordinatorData.id);
+    navigate('/admin');
+  };
+
+  const handleCoordinatorCancel = () => {
+    setShowCoordinatorPopup(false);
+    setNewCoordinatorData(null);
+    setIsRegistering(false);
+    resetRegistrationForm();
+  };
+
+  const handleRegister = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    
+    if (role === 'student' && !idCardFile) {
+      setError('Please upload your Student ID Card.');
+      return;
+    }
+    
+    setIsLoading(true);
+    setTimeout(() => {
+      setIsLoading(false);
+      
+      if (role === 'coordinator' || role === 'faculty') {
+        const newAdmin = {
+          id: `A${mockData.admins.length + 1}`,
+          name: regName,
+          email: regEmail,
+          empId: regId,
+          password: regPassword,
+          subjects: role === 'faculty' ? ['Software Engineering', 'Web Development'] : ['Cloud Computing', 'Machine Learning', 'Internet of Things'],
+          classes: role === 'faculty' ? ['IT-1', 'IT-3'] : ['IT-1', 'IT-2'],
+          role: role
+        };
+        setNewCoordinatorData(newAdmin);
+        setShowCoordinatorPopup(true);
+        return; // Don't reset form yet
+      } else {
+        if (role === 'hod') {
+          mockData.admins.push({
+            id: `A${mockData.admins.length + 1}`,
+            name: regName,
+            email: regEmail,
+            empId: regId,
+            subjects: [],
+            classes: [],
+            role: role
+          });
+        } else if (role === 'student') {
+          mockData.students.push({
+            id: `STU${mockData.students.length + 1}`,
+            name: regName,
+            email: regEmail,
+            enrollmentNumber: regId,
+            classId: regClass,
+            className: regClass,
+            year: regYear,
+            semester: regSemester.replace(/\D/g, ''),
+            batch: regBatch,
+            branch: regDepartment || 'Information Technology',
+            overallAttendance: 0,
+            avatar: `https://i.pravatar.cc/150?u=${regId}`,
+            status: 'Active',
+            sgpa: { ...regSgpas, sem5: null, sem6: null, sem7: null, sem8: null },
+            cgpa: regCgpa,
+            activeBacklogs: Number(regBacklogs) || 0,
+            subjects: regSubjects,
+            batchCoordinator: regBatchCoordinator
+          });
+        }
+        setIsRegistering(false);
+        setUserId(regId);
+        setPassword(regPassword);
+      }
+      
+      resetRegistrationForm();
     }, 1200);
   };
 
@@ -212,10 +287,10 @@ export const Login = () => {
           <div className="max-w-md w-full mx-auto min-h-full flex flex-col pt-8 pb-8 md:pt-12 animate-in fade-in slide-in-from-right-4 duration-500">
             <div className="mb-10 text-center md:text-left mt-8 md:mt-0">
               <h2 className="text-3xl font-extrabold mb-2 text-foreground tracking-tight">
-                {isRegistering ? (role === 'faculty' ? 'Request Access' : 'Create Account') : 'Sign In'}
+                {isRegistering ? 'Create Account' : 'Sign In'}
               </h2>
               <p className="text-muted-foreground font-medium text-sm md:text-base">
-                {isRegistering ? (role === 'faculty' ? 'Submit a request to the Class Coordinator for portal access.' : 'Register to access your portal.') : 'Enter your credentials to access your portal.'}
+                {isRegistering ? 'Register to access your portal.' : 'Enter your credentials to access your portal.'}
               </p>
             </div>
 
@@ -223,7 +298,7 @@ export const Login = () => {
               <Button 
                 variant={role === 'student' ? 'default' : 'ghost'} 
                 className={`rounded-lg transition-all ${role === 'student' ? 'shadow-md' : 'text-muted-foreground hover:text-foreground'}`}
-                onClick={() => { setRole('student'); setError(''); isRegistering && setIsRegistering(false); }}
+                onClick={() => { setRole('student'); setError(''); }}
                 type="button"
               >
                 Student
@@ -231,7 +306,7 @@ export const Login = () => {
               <Button 
                 variant={role === 'faculty' ? 'default' : 'ghost'} 
                 className={`rounded-lg transition-all ${role === 'faculty' ? 'shadow-md' : 'text-muted-foreground hover:text-foreground'}`}
-                onClick={() => { setRole('faculty'); setError(''); isRegistering && setIsRegistering(false); }}
+                onClick={() => { setRole('faculty'); setError(''); }}
                 type="button"
               >
                 Faculty
@@ -239,7 +314,7 @@ export const Login = () => {
               <Button 
                 variant={role === 'coordinator' ? 'default' : 'ghost'} 
                 className={`rounded-lg transition-all ${role === 'coordinator' ? 'shadow-md' : 'text-muted-foreground hover:text-foreground'}`}
-                onClick={() => { setRole('coordinator'); setError(''); setIsRegistering(false); }}
+                onClick={() => { setRole('coordinator'); setError(''); }}
                 type="button"
               >
                 Coordinator
@@ -312,26 +387,6 @@ export const Login = () => {
                   {!isLoading && <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />}
                 </Button>
               </form>
-            ) : facultyRequestSent ? (
-              <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 text-center py-10 space-y-4">
-                <div className="w-16 h-16 bg-success/20 text-success rounded-full flex items-center justify-center mx-auto mb-4">
-                  <CheckCircle2 size={32} />
-                </div>
-                <h3 className="text-xl font-bold text-foreground">Request Submitted</h3>
-                <p className="text-muted-foreground font-medium">
-                  Your request has been sent to the assigned Class Coordinator. Your account will be activated after approval.
-                </p>
-                <Button 
-                  variant="outline" 
-                  className="mt-6 w-full"
-                  onClick={() => {
-                    setFacultyRequestSent(false);
-                    setIsRegistering(false);
-                  }}
-                >
-                  Back to Login
-                </Button>
-              </div>
             ) : (
               // REGISTRATION FORM
               <form onSubmit={handleRegister} className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -361,12 +416,12 @@ export const Login = () => {
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-semibold text-muted-foreground">
-                      {role === 'faculty' ? 'Employee ID' : 'Enrollment No.'}
+                      {role === 'faculty' || role === 'coordinator' ? 'Employee ID' : 'Enrollment No.'}
                     </label>
                     <Input 
                       type="text" 
                       className="h-11 bg-background border-border focus-visible:ring-primary/30 rounded-xl shadow-sm" 
-                      placeholder={role === 'faculty' ? "EMP001" : "0827CS... "}
+                      placeholder={role === 'faculty' || role === 'coordinator' ? "EMP001" : "0827CS... "}
                       value={regId}
                       onChange={(e) => setRegId(e.target.value)}
                       required
@@ -374,7 +429,7 @@ export const Login = () => {
                   </div>
                 </div>
 
-                {role === 'faculty' && (
+                {(role === 'faculty' || role === 'coordinator') && (
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <label className="text-sm font-semibold text-muted-foreground">Mobile Number</label>
@@ -641,13 +696,13 @@ export const Login = () => {
                   className="w-full mt-4 h-12 text-base rounded-xl font-semibold shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all duration-300 group"
                   disabled={isLoading}
                 >
-                  {isLoading ? 'Processing...' : (role === 'faculty' ? 'Submit Access Request' : 'Register')} 
+                  {isLoading ? 'Processing...' : 'Register'} 
                   {!isLoading && <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />}
                 </Button>
               </form>
             )}
 
-            {!facultyRequestSent && (role === 'student' || role === 'faculty') && (
+            {(role === 'student' || role === 'faculty' || role === 'coordinator' || role === 'hod') && (
               <p className="text-center mt-8 text-sm text-muted-foreground font-medium">
                 {isRegistering ? 'Already have an account?' : "Don't have an account?"}{' '}
                 <span 
@@ -794,6 +849,65 @@ export const Login = () => {
           </div>
         </div>
       </Card>
+
+      {/* Coordinator Creation Confirmation Popup */}
+      {showCoordinatorPopup && newCoordinatorData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <Card className="w-full max-w-md shadow-2xl border-primary/20 animate-in zoom-in-95 duration-300">
+            <div className="bg-gradient-to-r from-primary to-blue-600 p-6 flex flex-col items-center justify-center text-white rounded-t-xl relative">
+              <div className="w-20 h-20 rounded-full border-4 border-white/20 bg-white/10 overflow-hidden mb-3">
+                <img 
+                  src={`https://i.pravatar.cc/150?u=${newCoordinatorData.empId}`} 
+                  alt="Profile" 
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <h3 className="text-xl font-bold">{newCoordinatorData.name}</h3>
+              <Badge variant="secondary" className="mt-2 bg-white/20 text-white border-none hover:bg-white/30">
+                {newCoordinatorData.role === 'coordinator' ? 'Class Coordinator' : 'Faculty Member'}
+              </Badge>
+            </div>
+            
+            <div className="p-6 space-y-4 bg-card">
+              <div className="grid grid-cols-2 gap-y-4 gap-x-2 text-sm">
+                <div className="space-y-1">
+                  <span className="text-muted-foreground flex items-center gap-1.5"><Briefcase size={14} /> Employee ID</span>
+                  <p className="font-semibold text-foreground">{newCoordinatorData.empId}</p>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-muted-foreground flex items-center gap-1.5"><Mail size={14} /> Email</span>
+                  <p className="font-semibold text-foreground truncate" title={newCoordinatorData.email}>{newCoordinatorData.email}</p>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-muted-foreground flex items-center gap-1.5"><Building2 size={14} /> {newCoordinatorData.role === 'coordinator' ? 'Coordinator Of (Section)' : 'Teaching (Section)'}</span>
+                  <p className="font-semibold text-foreground">{newCoordinatorData.classes && newCoordinatorData.classes.length > 0 ? newCoordinatorData.classes.join(', ') : 'IT-1'}</p>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-muted-foreground flex items-center gap-1.5"><BookOpen size={14} /> Semester</span>
+                  <p className="font-semibold text-foreground">Semester 6</p>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-muted-foreground flex items-center gap-1.5"><GraduationCap size={14} /> Assigned Subjects</span>
+                  <p className="font-semibold text-foreground">{newCoordinatorData.subjects ? newCoordinatorData.subjects.join(', ') : '3 Subjects'}</p>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-muted-foreground flex items-center gap-1.5"><Building2 size={14} /> Total Assigned Classes</span>
+                  <p className="font-semibold text-foreground">12 / Week</p>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-3 pt-4 mt-2 border-t border-border">
+                <Button variant="outline" className="flex-1" onClick={handleCoordinatorCancel}>
+                  Cancel
+                </Button>
+                <Button className="flex-1 shadow-md shadow-primary/20" onClick={handleCoordinatorConfirm}>
+                  Open Dashboard
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   );
 };

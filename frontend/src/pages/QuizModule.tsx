@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Plus, Search, Filter, CheckCircle2, 
   X, BarChart3, TrendingUp, AlertTriangle, Activity,
-  Eye, Clock, Edit, Trash2, Users, Upload, Link as LinkIcon, FileText, Sparkles, ArrowLeft, Trophy, CheckSquare, XCircle, PlayCircle, Timer, FileQuestion, Send, Flag, Target, BrainCircuit, BookOpen, LayoutDashboard
+  Eye, Clock, Edit, Trash2, Users, Upload, Link as LinkIcon, FileText, Sparkles, ArrowLeft, Trophy, CheckSquare, XCircle, PlayCircle, Timer, FileQuestion, Send, Flag, Target, BrainCircuit, BookOpen, LayoutDashboard, Calendar
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -205,24 +205,233 @@ const STATIC_COMPLETED_QUIZZES: any[] = [
   },
 ];
 
-export function QuizModule() {
+export function QuizModule({ workspaceContext }: { workspaceContext?: any }) {
   const { role, user } = useAuth();
   
   const [quizzes] = useState(mockData.quizzes);
   const [attempts, setAttempts] = useState<any[]>(mockData.quizAttempts);
 
-  if (['faculty', 'hod', 'coordinator'].includes(role)) {
-    return <AdminQuizDashboard quizzes={quizzes} attempts={attempts} />;
+  // Filter quizzes based on workspace context if provided
+  const filteredQuizzes = workspaceContext 
+    ? quizzes.filter(q => 
+        q.classId === workspaceContext.classId && 
+        q.subjectId === workspaceContext.subjectId
+      )
+    : quizzes;
+
+  if (['faculty', 'hod', 'coordinator', 'both'].includes(role)) {
+    return <AdminQuizDashboard quizzes={filteredQuizzes} attempts={attempts} workspaceContext={workspaceContext} />;
   }
   
-  return <StudentQuizDashboard quizzes={quizzes} attempts={attempts} setAttempts={setAttempts} user={user} />;
+  return <StudentQuizDashboard quizzes={filteredQuizzes} attempts={attempts} setAttempts={setAttempts} user={user} workspaceContext={workspaceContext} />;
+}
+
+// ==========================================
+// ADMIN DASHBOARD HIERARCHY
+// ==========================================
+function QuizHierarchyView({ quizzes, searchQuery, onAnalyticsClick, workspaceContext }: any) {
+  const [selectedYear, setSelectedYear] = useState<string | null>(null);
+  const [selectedSemester, setSelectedSemester] = useState<string | null>(null);
+  const [selectedClass, setSelectedClass] = useState<any | null>(null);
+
+  const availableYears = Array.from(new Set(mockData.classes.map(c => c.year))).sort();
+  
+  const getSemestersForYear = (year: string) => {
+    if (year === 'First Year') return ['Semester 1', 'Semester 2'];
+    if (year === 'Second Year') return ['Semester 3', 'Semester 4'];
+    if (year === 'Third Year') return ['Semester 5', 'Semester 6'];
+    if (year === 'Fourth Year') return ['Semester 7', 'Semester 8'];
+    return ['Semester 1', 'Semester 2'];
+  };
+
+  const getClassesForSemester = (year: string, semester: string) => {
+    return mockData.classes.filter((c: any) => c.year === year && c.semester === semester);
+  };
+
+  const classQuizzes = selectedClass ? quizzes.filter((q:any) => q.classId === selectedClass.id && q.title.toLowerCase().includes(searchQuery.toLowerCase())) : [];
+
+  if (workspaceContext) {
+    const workspaceQuizzes = quizzes.filter((q:any) => q.title.toLowerCase().includes(searchQuery.toLowerCase()));
+    return (
+      <div className="space-y-4">
+        <Card className="shadow-sm border-border">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left">
+              <thead className="text-xs text-muted-foreground uppercase bg-muted/50">
+                <tr>
+                  <th className="px-6 py-4 font-medium">Quiz Title</th>
+                  <th className="px-6 py-4 font-medium">Subject</th>
+                  <th className="px-6 py-4 font-medium">Date</th>
+                  <th className="px-6 py-4 font-medium">Status</th>
+                  <th className="px-6 py-4 font-medium text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {workspaceQuizzes.map((quiz: any) => {
+                  const subject = mockData.subjects.find(s => s.id === quiz.subjectId)?.name || 'Unknown';
+                  return (
+                    <tr key={quiz.id} className="hover:bg-muted/30 transition-colors">
+                      <td className="px-6 py-4 font-medium text-foreground">{quiz.title}</td>
+                      <td className="px-6 py-4 text-muted-foreground">{subject}</td>
+                      <td className="px-6 py-4 text-muted-foreground">{quiz.date || 'TBD'}</td>
+                      <td className="px-6 py-4">
+                        <Badge variant="outline" className={
+                          quiz.status === 'Active' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' :
+                          quiz.status === 'Upcoming' ? 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20' :
+                          'bg-purple-500/10 text-purple-500 border-purple-500/20'
+                        }>
+                          {quiz.status}
+                        </Badge>
+                      </td>
+                      <td className="px-6 py-4 text-right space-x-2">
+                        <Button variant="ghost" size="sm" className="h-8 gap-2 hover:text-primary" onClick={() => onAnalyticsClick(quiz)}>
+                           <BarChart3 size={16} /> Analytics
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {workspaceQuizzes.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-8 text-center text-muted-foreground">
+                      No quizzes found for this workspace.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Breadcrumb Navigation */}
+      <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground bg-card p-3 rounded-md border border-border shadow-sm">
+        <button onClick={() => { setSelectedYear(null); setSelectedSemester(null); setSelectedClass(null); }} className={`hover:text-primary transition-colors font-medium ${!selectedYear ? 'text-primary' : ''}`}>All Years</button>
+        {selectedYear && (
+          <>
+            <span className="text-border">/</span>
+            <button onClick={() => { setSelectedSemester(null); setSelectedClass(null); }} className={`hover:text-primary transition-colors font-medium ${!selectedSemester ? 'text-primary' : ''}`}>{selectedYear}</button>
+          </>
+        )}
+        {selectedSemester && (
+          <>
+            <span className="text-border">/</span>
+            <button onClick={() => setSelectedClass(null)} className={`hover:text-primary transition-colors font-medium ${!selectedClass ? 'text-primary' : ''}`}>{selectedSemester}</button>
+          </>
+        )}
+        {selectedClass && (
+          <>
+            <span className="text-border">/</span>
+            <span className="text-foreground font-semibold">{selectedClass.name}</span>
+          </>
+        )}
+      </div>
+
+      {!selectedYear ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+          {availableYears.map(year => (
+            <Card key={year} className="cursor-pointer hover:border-primary transition-colors bg-card hover:bg-muted/50" onClick={() => setSelectedYear(year)}>
+              <CardContent className="p-6 flex flex-col items-center justify-center text-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                  <BookOpen className="w-6 h-6 text-primary" />
+                </div>
+                <h3 className="text-xl font-bold text-foreground">{year}</h3>
+                <p className="text-sm text-muted-foreground">{mockData.classes.filter(c => c.year === year).length} Classes</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : !selectedSemester ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {getSemestersForYear(selectedYear).map(sem => (
+            <Card key={sem} className="cursor-pointer hover:border-primary transition-colors bg-card hover:bg-muted/50" onClick={() => setSelectedSemester(sem)}>
+              <CardContent className="p-6 flex flex-col items-center justify-center text-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-indigo-500/10 flex items-center justify-center">
+                  <Calendar className="w-6 h-6 text-indigo-500" />
+                </div>
+                <h3 className="text-xl font-bold text-foreground">{sem}</h3>
+                <p className="text-sm text-muted-foreground">{getClassesForSemester(selectedYear, sem).length} Classes</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : !selectedClass ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+          {getClassesForSemester(selectedYear, selectedSemester).map(cls => (
+            <Card key={cls.id} className="cursor-pointer hover:border-primary transition-colors bg-card hover:bg-muted/50" onClick={() => setSelectedClass(cls)}>
+              <CardContent className="p-6 flex flex-col items-center justify-center text-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center">
+                  <Users className="w-6 h-6 text-emerald-500" />
+                </div>
+                <h3 className="text-xl font-bold text-foreground">{cls.name}</h3>
+                <p className="text-sm text-muted-foreground">{quizzes.filter((q:any) => q.classId === cls.id).length} Quizzes</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <Card className="shadow-sm border-border">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-left">
+            <thead className="text-xs text-muted-foreground uppercase bg-muted/50">
+              <tr>
+                <th className="px-6 py-4 font-medium">Quiz Title</th>
+                <th className="px-6 py-4 font-medium">Subject</th>
+                <th className="px-6 py-4 font-medium">Date</th>
+                <th className="px-6 py-4 font-medium">Status</th>
+                <th className="px-6 py-4 font-medium text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {classQuizzes.map((quiz: any) => {
+                const subject = mockData.subjects.find(s => s.id === quiz.subjectId)?.name || 'Unknown';
+                return (
+                  <tr key={quiz.id} className="hover:bg-muted/30 transition-colors">
+                    <td className="px-6 py-4 font-medium text-foreground">{quiz.title}</td>
+                    <td className="px-6 py-4 text-muted-foreground">{subject}</td>
+                    <td className="px-6 py-4 text-muted-foreground">{quiz.date}</td>
+                    <td className="px-6 py-4">
+                      <Badge variant="outline" className={
+                        quiz.status === 'Active' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' :
+                        quiz.status === 'Upcoming' ? 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20' :
+                        'bg-purple-500/10 text-purple-500 border-purple-500/20'
+                      }>
+                        {quiz.status}
+                      </Badge>
+                    </td>
+                    <td className="px-6 py-4 text-right space-x-2">
+                      <Button variant="ghost" size="sm" className="h-8 gap-2 hover:text-primary" onClick={() => onAnalyticsClick(quiz)}>
+                         <BarChart3 size={16} /> Analytics
+                      </Button>
+                    </td>
+                  </tr>
+                );
+              })}
+              {classQuizzes.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="px-6 py-8 text-center text-muted-foreground">
+                    No quizzes found for this class.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+      )}
+    </div>
+  );
 }
 
 // ==========================================
 // ADMIN DASHBOARD
 // ==========================================
-function AdminQuizDashboard({ quizzes, attempts }: any) {
-  const [activeTab, setActiveTab] = useState('overview');
+function AdminQuizDashboard({ quizzes, attempts, workspaceContext }: any) {
+  const [activeTab, setActiveTab] = useState(workspaceContext ? 'quizzes' : 'overview');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeAnalyticsQuiz, setActiveAnalyticsQuiz] = useState<any>(null);
@@ -258,22 +467,24 @@ function AdminQuizDashboard({ quizzes, attempts }: any) {
       </div>
 
       {/* Tabs */}
-      <div className="flex space-x-1 border-b border-border">
-        {['overview', 'quizzes'].map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2.5 text-sm font-medium transition-colors border-b-2 ${
-              activeTab === tab ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            {tab.charAt(0).toUpperCase() + tab.slice(1)}
-          </button>
-        ))}
-      </div>
+      {!workspaceContext && (
+        <div className="flex space-x-1 border-b border-border">
+          {['overview', 'quizzes'].map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-4 py-2.5 text-sm font-medium transition-colors border-b-2 ${
+                activeTab === tab ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {tab.charAt(0).toUpperCase() + tab.slice(1)}
+            </button>
+          ))}
+        </div>
+      )}
 
       <AnimatePresence mode="wait">
-        {activeTab === 'overview' && (
+        {activeTab === 'overview' && !workspaceContext && (
           <motion.div key="overview" variants={itemVariants} initial="hidden" animate="visible" exit="hidden" className="space-y-6">
             <AdminOverviewDashboard quizzes={quizzes} attempts={attempts} />
           </motion.div>
@@ -281,54 +492,19 @@ function AdminQuizDashboard({ quizzes, attempts }: any) {
 
         {activeTab === 'quizzes' && (
           <motion.div key="quizzes" variants={itemVariants} initial="hidden" animate="visible" exit="hidden">
-            <Card className="shadow-sm border-border">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm text-left">
-                  <thead className="text-xs text-muted-foreground uppercase bg-muted/50">
-                    <tr>
-                      <th className="px-6 py-4 font-medium">Quiz Title</th>
-                      <th className="px-6 py-4 font-medium">Subject</th>
-                      <th className="px-6 py-4 font-medium">Date</th>
-                      <th className="px-6 py-4 font-medium">Status</th>
-                      <th className="px-6 py-4 font-medium text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {quizzes.filter((q:any) => q.title.toLowerCase().includes(searchQuery.toLowerCase())).map((quiz: any) => {
-                      const subject = mockData.subjects.find(s => s.id === quiz.subjectId)?.name || 'Unknown';
-                      return (
-                        <tr key={quiz.id} className="hover:bg-muted/30 transition-colors">
-                          <td className="px-6 py-4 font-medium text-foreground">{quiz.title}</td>
-                          <td className="px-6 py-4 text-muted-foreground">{subject}</td>
-                          <td className="px-6 py-4 text-muted-foreground">{quiz.date}</td>
-                          <td className="px-6 py-4">
-                            <Badge variant="outline" className={
-                              quiz.status === 'Active' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' :
-                              quiz.status === 'Upcoming' ? 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20' :
-                              'bg-purple-500/10 text-purple-500 border-purple-500/20'
-                            }>
-                              {quiz.status}
-                            </Badge>
-                          </td>
-                          <td className="px-6 py-4 text-right space-x-2">
-                            <Button variant="ghost" size="sm" className="h-8 gap-2 hover:text-primary" onClick={() => setActiveAnalyticsQuiz(quiz)}>
-                               <BarChart3 size={16} /> Analytics
-                            </Button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
+            <QuizHierarchyView 
+              quizzes={quizzes} 
+              searchQuery={searchQuery} 
+              onAnalyticsClick={setActiveAnalyticsQuiz} 
+              workspaceContext={workspaceContext}
+            />
           </motion.div>
         )}
       </AnimatePresence>
 
       <AnimatePresence>
         {showCreateModal && (
-          <CreateQuizModal onClose={() => setShowCreateModal(false)} onSave={() => setShowCreateModal(false)} />
+          <CreateQuizModal onClose={() => setShowCreateModal(false)} onSave={() => setShowCreateModal(false)} workspaceContext={workspaceContext} />
         )}
       </AnimatePresence>
     </motion.div>
@@ -696,7 +872,7 @@ function AdminQuizAnalytics({ quiz, allAttempts, onClose }: any) {
 // ==========================================
 // CREATE QUIZ MODAL
 // ==========================================
-function CreateQuizModal({ onClose, onSave }: any) {
+function CreateQuizModal({ onClose, onSave, workspaceContext }: any) {
   const [step, setStep] = useState(1);
   const [creationMethod, setCreationMethod] = useState('manual');
   
@@ -764,8 +940,12 @@ function CreateQuizModal({ onClose, onSave }: any) {
                 )}
 
                 {/* Standardized Targeting Fields */}
-                <h3 className="font-semibold text-lg border-b border-border pb-2">Target Audience</h3>
-                <QuizTargetingFields />
+                {!workspaceContext && (
+                  <>
+                    <h3 className="font-semibold text-lg border-b border-border pb-2">Target Audience</h3>
+                    <QuizTargetingFields />
+                  </>
+                )}
 
                 {/* Quiz-specific Details */}
                 <h3 className="font-semibold text-lg border-b border-border pb-2 mt-6">Quiz Settings</h3>
@@ -773,7 +953,7 @@ function CreateQuizModal({ onClose, onSave }: any) {
                   <div className="space-y-2"><label className="text-sm font-medium">Quiz Title *</label><input type="text" className="input-class" placeholder="e.g., Mid-Term Assessment" /></div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Subject *</label>
-                    <select className="input-class">
+                    <select className="input-class" disabled={!!workspaceContext} defaultValue={workspaceContext?.subjectId || ""}>
                        {mockData.subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                     </select>
                   </div>
@@ -1005,7 +1185,7 @@ function StatCard({ title, value, icon, color, bg }: any) {
 // ==========================================
 // STUDENT DASHBOARD
 // ==========================================
-function StudentQuizDashboard({ quizzes, attempts, user }: any) {
+function StudentQuizDashboard({ quizzes, attempts, user, workspaceContext }: any) {
   const [takingQuiz, setTakingQuiz] = useState<any>(null);
   const [viewingResult, setViewingResult] = useState<any>(null);
 
@@ -1014,17 +1194,23 @@ function StudentQuizDashboard({ quizzes, attempts, user }: any) {
   }
 
   // Filter quizzes based on student class/eligibility (simplified)
-  const myQuizzes = quizzes; 
+  const myQuizzes = workspaceContext?.subjectId 
+    ? quizzes.filter((q:any) => q.subjectId === workspaceContext.subjectId)
+    : quizzes; 
   const myAttempts = attempts.filter((a:any) => a.studentId === user.id);
   
   const availableQuizzes = myQuizzes.filter((q:any) => q.status === 'Active' && !myAttempts.some((a:any) => a.quizId === q.id));
 
 
-  const totalQuizzes = availableQuizzes.length + STATIC_COMPLETED_QUIZZES.length;
+  const completedQuizzes = workspaceContext?.subjectId
+    ? STATIC_COMPLETED_QUIZZES.filter((q:any) => q.subjectId === workspaceContext.subjectId)
+    : STATIC_COMPLETED_QUIZZES;
+
+  const totalQuizzes = availableQuizzes.length + completedQuizzes.length;
   const missedQuizzes = myQuizzes.filter((q:any) => q.status === 'Completed' && !myAttempts.some((a:any) => a.quizId === q.id)).length;
   
-  const staticTotalPct = STATIC_COMPLETED_QUIZZES.reduce((acc, curr) => acc + curr.attempt.percentage, 0);
-  const avgScore = STATIC_COMPLETED_QUIZZES.length > 0 ? (staticTotalPct / STATIC_COMPLETED_QUIZZES.length).toFixed(1) + '%' : '0%';
+  const staticTotalPct = completedQuizzes.reduce((acc, curr) => acc + curr.attempt.percentage, 0);
+  const avgScore = completedQuizzes.length > 0 ? (staticTotalPct / completedQuizzes.length).toFixed(1) + '%' : '0%';
 
   return (
     <motion.div className="p-6 md:p-8 max-w-7xl mx-auto space-y-8" variants={containerVariants} initial="hidden" animate="visible">
@@ -1036,7 +1222,7 @@ function StudentQuizDashboard({ quizzes, attempts, user }: any) {
 
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
          <StatCard title="Total Quizzes" value={totalQuizzes} icon={<LayoutDashboard size={20} />} color="text-blue-500" bg="bg-blue-500/10" />
-         <StatCard title="Attempted" value={STATIC_COMPLETED_QUIZZES.length} icon={<CheckCircle2 size={20} />} color="text-emerald-500" bg="bg-emerald-500/10" />
+         <StatCard title="Attempted" value={completedQuizzes.length} icon={<CheckCircle2 size={20} />} color="text-emerald-500" bg="bg-emerald-500/10" />
          <StatCard title="Pending" value={availableQuizzes.length} icon={<Clock size={20} />} color="text-amber-500" bg="bg-amber-500/10" />
          <StatCard title="Missed" value={missedQuizzes} icon={<AlertTriangle size={20} />} color="text-red-500" bg="bg-red-500/10" />
          <StatCard title="Avg Score" value={avgScore} icon={<TrendingUp size={20} />} color="text-purple-500" bg="bg-purple-500/10" />
@@ -1072,7 +1258,7 @@ function StudentQuizDashboard({ quizzes, attempts, user }: any) {
       <div className="space-y-6 pt-6 border-t border-border">
         <h2 className="text-xl font-bold text-foreground border-b border-border pb-2">Completed Quizzes & Results</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {STATIC_COMPLETED_QUIZZES.map((quiz: any) => {
+          {completedQuizzes.map((quiz: any) => {
             const isPassed = quiz.attempt.status === 'Passed';
             return (
               <Card key={quiz.id} className="shadow-sm border-border flex flex-col hover:shadow-lg transition-shadow group">
