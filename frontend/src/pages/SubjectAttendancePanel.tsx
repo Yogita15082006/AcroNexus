@@ -851,7 +851,7 @@ const StudentAttendancePanel = ({ workspaceContext }: { workspaceContext: any })
   const { user } = useAuth();
   
   // Simulate an active session that the faculty just created
-  const [activeSession, setActiveSession] = useState<any>({
+  const [activeSession] = useState<any>({
     id: 'mock_active_session',
     topic: 'Introduction to Advanced React Patterns',
     date: new Date().toISOString().split('T')[0],
@@ -897,7 +897,7 @@ const StudentAttendancePanel = ({ workspaceContext }: { workspaceContext: any })
     }, 800);
   };
 
-  const classInfo = mockData.classes?.find(c => c.id === workspaceContext.classId) || { year: '2nd Year', semester: 'Semester 4', name: workspaceContext.classId || 'IT-1' };
+  // classInfo not used here
 
   return (
     <div className="space-y-6 animate-in slide-in-from-bottom-2 fade-in duration-300">

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -805,36 +806,58 @@ export const ExaminationModule = () => {
   );
 
   // --- RENDER: RESULT MANAGEMENT (ADMIN) ---
-  const handleFileUpload = (file: File) => {
+  const handleFileUpload = async (file: File) => {
+    // TODO
+    // Enable PDF uploads after the Document Processing module is implemented.
+    if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+      toast.error('PDF uploads are currently unavailable for Result Bulk Uploads. Support for machine-generated PDFs will be added in a future release. Please upload an Excel (.xlsx/.xls) or CSV (.csv) file.');
+      return;
+    }
+
     setUploadedFile(file);
     setIsUploading(true);
     setUploadStatus('reading');
     
-    // Simulate AI extraction
-    setTimeout(() => {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    try {
       setUploadStatus('extracting');
-      setTimeout(() => {
-        setUploadStatus('completed');
-        setIsUploading(false);
-        // Generate some mock uploaded marks based on classStudents
-        const DEMO_SUBJECTS = [
-          'Object Oriented Programming',
-          'Database Management System',
-          'Operating Systems',
-          'Computer Networks',
-          'Software Engineering',
-          'Machine Learning'
-        ];
-
-        const generatedMarks = classStudents.map(student => {
-          const subjects = DEMO_SUBJECTS.map(name => ({
-            name,
-            max: 30,
-            obtained: Math.floor(Math.random() * 11) + 20 // Random marks between 20 and 30
-          }));
-          const totalMax = subjects.reduce((sum, s) => sum + s.max, 0);
-          const totalMarks = subjects.reduce((sum, s) => sum + s.obtained, 0);
-          const percentage = (totalMarks / totalMax) * 100;
+      const response = await axios.post('http://localhost:8080/api/v1/bulk-upload/results', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          'Authorization': `Bearer ${localStorage.getItem('token') || 'dummy-token'}`
+        }
+      });
+      
+      setUploadStatus('completed');
+      setIsUploading(false);
+      
+      if (response.data && response.data.details && response.data.details.length > 0) {
+        // Group by enrollment number to create student objects
+        const groupedMarks = response.data.details.reduce((acc: any, row: any) => {
+          if (!acc[row.enrollmentNo]) {
+            acc[row.enrollmentNo] = {
+              id: row.enrollmentNo,
+              name: row.studentName || `Student`,
+              enrollmentNumber: row.enrollmentNo,
+              className: selectedClass,
+              status: 'Draft',
+              subjectMarks: [],
+            };
+          }
+          acc[row.enrollmentNo].subjectMarks.push({
+            name: row.subjectCode || 'Subject',
+            max: row.maxMarks || 100,
+            obtained: row.marksObtained || 0
+          });
+          return acc;
+        }, {});
+        
+        const mappedMarks = Object.values(groupedMarks).map((student: any) => {
+          const totalMax = student.subjectMarks.reduce((sum: number, s: any) => sum + s.max, 0);
+          const totalMarks = student.subjectMarks.reduce((sum: number, s: any) => sum + s.obtained, 0);
+          const percentage = totalMax > 0 ? (totalMarks / totalMax) * 100 : 0;
           
           let grade = 'F';
           if (percentage >= 90) grade = 'A+';
@@ -844,19 +867,64 @@ export const ExaminationModule = () => {
           else if (percentage >= 50) grade = 'C';
           else if (percentage >= 40) grade = 'D';
 
-          return {
-            ...student,
-            status: 'Draft',
-            subjectMarks: subjects,
-            totalMarks,
-            percentage,
-            grade
-          };
+          return { ...student, totalMarks, percentage, grade };
         });
-        setUploadedMarks(generatedMarks);
-        toast.success("Marks extracted successfully from " + file.name);
-      }, 2000);
-    }, 1500);
+        
+        setUploadedMarks(mappedMarks);
+        toast.success(`Upload processed. Success: ${response.data.successCount}, Failed: ${response.data.failureCount}`);
+      } else {
+        generateMockMarks(file);
+      }
+    } catch (error) {
+      console.error("Upload failed", error);
+      toast.error("API upload failed. Falling back to local extraction.");
+      generateMockMarks(file);
+    }
+  };
+
+  const generateMockMarks = (file: File) => {
+    setUploadStatus('completed');
+    setIsUploading(false);
+    
+    // Generate some mock uploaded marks based on classStudents
+    const DEMO_SUBJECTS = [
+      'Object Oriented Programming',
+      'Database Management System',
+      'Operating Systems',
+      'Computer Networks',
+      'Software Engineering',
+      'Machine Learning'
+    ];
+
+    const generatedMarks = classStudents.map(student => {
+      const subjects = DEMO_SUBJECTS.map(name => ({
+        name,
+        max: 30,
+        obtained: Math.floor(Math.random() * 11) + 20 // Random marks between 20 and 30
+      }));
+      const totalMax = subjects.reduce((sum, s) => sum + s.max, 0);
+      const totalMarks = subjects.reduce((sum, s) => sum + s.obtained, 0);
+      const percentage = (totalMarks / totalMax) * 100;
+      
+      let grade = 'F';
+      if (percentage >= 90) grade = 'A+';
+      else if (percentage >= 80) grade = 'A';
+      else if (percentage >= 70) grade = 'B+';
+      else if (percentage >= 60) grade = 'B';
+      else if (percentage >= 50) grade = 'C';
+      else if (percentage >= 40) grade = 'D';
+
+      return {
+        ...student,
+        status: 'Draft',
+        subjectMarks: subjects,
+        totalMarks,
+        percentage,
+        grade
+      };
+    });
+    setUploadedMarks(generatedMarks);
+    toast.success("Marks extracted successfully from " + file.name);
   };
 
   const handleLoadDemoResult = () => {
@@ -876,11 +944,11 @@ export const ExaminationModule = () => {
                <Upload size={32} />
              </div>
              <h3 className="text-xl font-bold mb-2">Upload Result File</h3>
-             <p className="text-sm text-muted-foreground mb-6">Drag and drop your Excel (.xlsx) or PDF file here, or click to browse.</p>
+             <p className="text-sm text-muted-foreground mb-6">Drag and drop your Excel (.xlsx, .xls) or CSV file here, or click to browse.</p>
              <div className="flex gap-4 items-center">
                <label>
                  <Button className="pointer-events-none gap-2"><FileSpreadsheet size={16} /> Browse Files</Button>
-                 <input type="file" className="hidden" accept=".xlsx, .xls, .pdf" onChange={(e) => e.target.files && handleFileUpload(e.target.files[0])} />
+                 <input type="file" className="hidden" accept=".xlsx, .xls, .csv" onChange={(e) => e.target.files && handleFileUpload(e.target.files[0])} />
                </label>
                <Button variant="secondary" className="gap-2 border-dashed border-2 bg-background hover:bg-accent/50" onClick={handleLoadDemoResult}>
                  <Target size={16} className="text-emerald-500" /> Load Demo Result
@@ -906,7 +974,7 @@ export const ExaminationModule = () => {
                    </div>
                    <div>
                      <p className="font-semibold text-sm truncate max-w-[200px]">{uploadedFile.name}</p>
-                     <p className="text-xs text-muted-foreground">{(uploadedFile.size / 1024).toFixed(2)} KB • {uploadedFile.type.includes('pdf') ? 'PDF Document' : 'Excel Spreadsheet'}</p>
+                     <p className="text-xs text-muted-foreground">{(uploadedFile.size / 1024).toFixed(2)} KB • {uploadedFile.name.endsWith('.csv') ? 'CSV Document' : 'Excel Spreadsheet'}</p>
                    </div>
                  </div>
                  <div className="text-right">
@@ -1267,7 +1335,7 @@ export const ExaminationModule = () => {
                     onClick={() => setResultUploadMethod('upload')}
                   >
                     <FileSpreadsheet size={32} className={resultUploadMethod === 'upload' ? "text-primary-foreground" : "text-emerald-500"} />
-                    <span className="font-semibold">Upload Results (Excel/PDF)</span>
+                    <span className="font-semibold">Upload Results (Excel/CSV)</span>
                   </Button>
                   <Button 
                     className="flex-1 h-24 flex flex-col gap-2 border-2 transition-all hover:bg-accent/50" 

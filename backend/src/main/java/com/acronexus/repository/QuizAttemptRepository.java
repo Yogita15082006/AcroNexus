@@ -1,0 +1,21 @@
+package com.acronexus.repository;
+
+import com.acronexus.entity.QuizAttempt;
+import org.springframework.data.jpa.repository.EntityGraph;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+@Repository
+public interface QuizAttemptRepository extends JpaRepository<QuizAttempt, UUID> {
+    @EntityGraph(attributePaths = {"quiz"})
+    List<QuizAttempt> findByStudent_User_Id(UUID studentId);
+
+    @EntityGraph(attributePaths = {"student", "student.user"})
+    List<QuizAttempt> findByQuiz_Id(UUID quizId);
+    boolean existsByQuiz_IdAndStudent_User_Id(UUID quizId, UUID studentId);
+    Optional<QuizAttempt> findByQuiz_IdAndStudent_User_Id(UUID quizId, UUID studentId);
+}

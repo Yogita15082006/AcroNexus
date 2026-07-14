@@ -3,7 +3,7 @@ import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { 
-  LayoutDashboard, Users, BookOpen, Clock, 
+  LayoutDashboard, Users, 
   Calendar, Bell, LogOut, Moon, Sun, UserCircle, Menu, GraduationCap, CheckSquare, ClipboardList, Library
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";

@@ -1,0 +1,151 @@
+package com.acronexus.controller;
+
+import com.acronexus.dto.ApiResponse;
+import com.acronexus.dto.QuizAttemptDto;
+import com.acronexus.dto.QuizDto;
+import com.acronexus.dto.QuizQuestionDto;
+import com.acronexus.service.QuizAttemptService;
+import com.acronexus.service.QuizQuestionService;
+import com.acronexus.service.QuizService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.UUID;
+
+@RestController
+@RequestMapping("/api/quizzes")
+@RequiredArgsConstructor
+public class QuizController {
+
+    private final QuizService quizService;
+    private final QuizQuestionService questionService;
+    private final QuizAttemptService attemptService;
+
+    // TODO (Future Groq Integration)
+    // AI question generation.
+
+    // TODO (Future AI)
+    // Difficulty analysis.
+
+    // TODO (Future AI)
+    // Personalized quiz recommendations.
+
+    // TODO (Future AI)
+    // Question quality analysis.
+
+    // ==========================================
+    // FACULTY ENDPOINTS
+    // ==========================================
+
+    @PostMapping("/faculty")
+    @PreAuthorize("hasRole('FACULTY')")
+    public ResponseEntity<ApiResponse<QuizDto.Response>> createQuiz(@Valid @RequestBody QuizDto.CreateRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("Quiz created successfully", quizService.createQuiz(request)));
+    }
+
+    @PutMapping("/faculty/{quizId}")
+    @PreAuthorize("hasRole('FACULTY')")
+    public ResponseEntity<ApiResponse<QuizDto.Response>> updateQuiz(@PathVariable UUID quizId, @Valid @RequestBody QuizDto.UpdateRequest request) {
+        return ResponseEntity.ok(ApiResponse.success("Quiz updated successfully", quizService.updateQuiz(quizId, request)));
+    }
+
+    @DeleteMapping("/faculty/{quizId}")
+    @PreAuthorize("hasRole('FACULTY')")
+    public ResponseEntity<ApiResponse<Void>> deleteQuiz(@PathVariable UUID quizId) {
+        quizService.deleteQuiz(quizId);
+        return ResponseEntity.ok(ApiResponse.success("Quiz deleted successfully", null));
+    }
+
+    @GetMapping("/faculty")
+    @PreAuthorize("hasRole('FACULTY')")
+    public ResponseEntity<ApiResponse<List<QuizDto.Response>>> getFacultyQuizzes() {
+        return ResponseEntity.ok(ApiResponse.success("Quizzes fetched successfully", quizService.getFacultyQuizzes()));
+    }
+
+    // --- Question Management ---
+
+    @PostMapping("/faculty/{quizId}/questions")
+    @PreAuthorize("hasRole('FACULTY')")
+    public ResponseEntity<ApiResponse<QuizQuestionDto.Response>> addQuestion(
+            @PathVariable UUID quizId, 
+            @Valid @RequestBody QuizQuestionDto.CreateRequest request) {
+        request.setQuizId(quizId);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("Question added successfully", questionService.addQuestion(request)));
+    }
+
+    @PutMapping("/faculty/questions/{questionId}")
+    @PreAuthorize("hasRole('FACULTY')")
+    public ResponseEntity<ApiResponse<QuizQuestionDto.Response>> updateQuestion(
+            @PathVariable UUID questionId, 
+            @Valid @RequestBody QuizQuestionDto.UpdateRequest request) {
+        return ResponseEntity.ok(ApiResponse.success("Question updated successfully", questionService.updateQuestion(questionId, request)));
+    }
+
+    @DeleteMapping("/faculty/questions/{questionId}")
+    @PreAuthorize("hasRole('FACULTY')")
+    public ResponseEntity<ApiResponse<Void>> deleteQuestion(@PathVariable UUID questionId) {
+        questionService.deleteQuestion(questionId);
+        return ResponseEntity.ok(ApiResponse.success("Question deleted successfully", null));
+    }
+
+    @GetMapping("/faculty/{quizId}/questions")
+    @PreAuthorize("hasRole('FACULTY')")
+    public ResponseEntity<ApiResponse<List<QuizQuestionDto.Response>>> getQuestionsForFaculty(@PathVariable UUID quizId) {
+        return ResponseEntity.ok(ApiResponse.success("Questions fetched successfully", questionService.getQuestionsByQuiz(quizId)));
+    }
+    
+    // --- Result APIs (Faculty) ---
+    @GetMapping("/faculty/{quizId}/attempts")
+    @PreAuthorize("hasRole('FACULTY')")
+    public ResponseEntity<ApiResponse<List<QuizAttemptDto.Response>>> getAttemptsForQuiz(@PathVariable UUID quizId) {
+        return ResponseEntity.ok(ApiResponse.success("Attempts fetched successfully", attemptService.getAttemptsForQuiz(quizId)));
+    }
+
+    // ==========================================
+    // STUDENT ENDPOINTS
+    // ==========================================
+
+    @GetMapping("/student/available")
+    @PreAuthorize("hasRole('STUDENT')")
+    public ResponseEntity<ApiResponse<List<QuizDto.Response>>> getAvailableQuizzes() {
+        return ResponseEntity.ok(ApiResponse.success("Available quizzes fetched successfully", quizService.getAvailableQuizzesForStudent()));
+    }
+
+    @GetMapping("/student/{quizId}/start")
+    @PreAuthorize("hasRole('STUDENT')")
+    public ResponseEntity<ApiResponse<List<QuizQuestionDto.Response>>> startQuiz(@PathVariable UUID quizId) {
+        // Validation of eligibility, timings, duplicate attempts happens in the service
+        return ResponseEntity.ok(ApiResponse.success("Quiz started successfully", attemptService.startQuiz(quizId)));
+    }
+
+    @PostMapping("/student/{quizId}/submit")
+    @PreAuthorize("hasRole('STUDENT')")
+    public ResponseEntity<ApiResponse<QuizAttemptDto.Response>> submitQuiz(
+            @PathVariable UUID quizId, 
+            @Valid @RequestBody QuizAttemptDto.SubmitRequest request) {
+        return ResponseEntity.ok(ApiResponse.success("Quiz submitted successfully", attemptService.submitQuiz(quizId, request)));
+    }
+    
+    @GetMapping("/student/results")
+    @PreAuthorize("hasRole('STUDENT')")
+    public ResponseEntity<ApiResponse<List<QuizAttemptDto.Response>>> getStudentResults() {
+        return ResponseEntity.ok(ApiResponse.success("Results fetched successfully", attemptService.getStudentResults()));
+    }
+
+    // ==========================================
+    // ADMIN / HOD ENDPOINTS
+    // ==========================================
+    
+    @GetMapping("/admin/{quizId}/attempts")
+    @PreAuthorize("hasAnyRole('ADMIN', 'HOD')")
+    public ResponseEntity<ApiResponse<List<QuizAttemptDto.Response>>> getQuizReports(@PathVariable UUID quizId) {
+        return ResponseEntity.ok(ApiResponse.success("Quiz reports fetched successfully", attemptService.getAttemptsForQuizAdmin(quizId)));
+    }
+}
